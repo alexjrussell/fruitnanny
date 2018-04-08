@@ -1,6 +1,5 @@
 #!/bin/bash
 
-FN_REPO_URL=https://github.com/alexjrussell/fruitnanny
 NGINX_VERSION=1.10.3
 
 # Check we are root
@@ -27,6 +26,19 @@ fi
 echo "You need to have met the following pre-requisites before running this script:"
 echo "- Enabled the camera"
 echo "- Enlarged the root partition"
+
+# Store user config for later use
+read -p "Enter your baby's name [Baby]: " baby_name
+if [ "$baby_name" == "" ]; then
+    baby_name=Baby
+fi
+read -p "Enter your baby's date of birth (yyyy-mm-dd): " baby_birthdate
+# TODO: Validate birth date
+read -p "Enter temperature unit (C/F) [C]: " temp_unit
+# TODO: Validate temperature unit
+if [ "$temp_unit" == "" ]; then
+    temp_unit=C
+fi
 
 # Disable wifi power-save mode
 echo "Disable wifi power save mode"
@@ -62,26 +74,9 @@ apt install -y nodejs
 npm install pm2 -g
 sudo -u pi pm2 startup
 env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u pi --hp /home/pi
-sudo -u pi pm2 save
 
 apt-get -y install python-gst-1.0 python-gobject ffmpeg xvfb pulseaudio dbus-x11
 
-# Install fruitnanny
-cd /opt
-git clone $FN_REPO_URL
-chown -R pi:pi /opt/fruitnanny
-# Configure fruitnanny
-read -p "Enter your baby's name [Baby]: " baby_name
-if [ "$baby_name" == "" ]; then
-    baby_name=Baby
-fi
-read -p "Enter your baby's date of birth (yyyy-mm-dd): " baby_birthdate
-# TODO: Validate birth date
-read -p "Enter temperature unit (C/F) [C]: " temp_unit
-# TODO: Validate temperature unit
-if [ "$temp_unit" == "" ]; then
-    temp_unit=C
-fi
 # Update /opt/fruitnanny/fruitnanny_config.js
 sed -i "s/Matthew/${baby_name}/g" /opt/fruitnanny/fruitnanny_config.js
 sed -i "s!2016-03-15!${baby_birthdate}!g" /opt/fruitnanny/fruitnanny_config.js
@@ -89,6 +84,10 @@ sed -i "s/\"temp_unit\": \"C\"/\"temp_unit\": \"${temp_unit}\"/g" /opt/fruitnann
 cd /opt/fruitnanny
 sudo -u pi npm install
 sudo -u pi pm2 start /opt/fruitnanny/server/app.js --name="fruitnanny"
+
+# Give pm2 time to start app, then save
+sleep 5s
+sudo -u pi pm2 save
 
 # Add the pi user to the pulse-access group
 adduser pi pulse-access
@@ -185,7 +184,11 @@ mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_old
 ln -s /opt/fruitnanny/configuration/nginx/nginx.conf /usr/local/nginx/conf/nginx.conf
 
 # Configure the password
-sh -c "echo -n 'fruitnanny:' >> /usr/local/nginx/conf/.htpasswd"
+read -p "Create a username for fruitnanny web application [fruitnanny]: " app_uname
+if [ "$app_uname" == "" ]; then
+	app_uname=fruitnanny
+fi
+sh -c "echo -n ${app_uname} >> /usr/local/nginx/conf/.htpasswd"
 echo "Enter password for fruitnanny web application"
 sh -c "openssl passwd -apr1 >> /usr/local/nginx/conf/.htpasswd"
 
