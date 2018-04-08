@@ -64,7 +64,7 @@ sudo -u pi pm2 startup
 env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u pi --hp /home/pi
 sudo -u pi pm2 save
 
-apt-get -y install python-gst-1.0 python-gobject xvfb pulseaudio dbus-x11
+apt-get -y install python-gst-1.0 python-gobject ffmpeg xvfb pulseaudio dbus-x11
 
 # Install fruitnanny
 cd /opt
@@ -109,9 +109,13 @@ make
 make install
 
 # Install motion
-dpkg --install https://github.com/Motion-Project/motion/releases/download/release-4.1.1/pi_stretch_motion_4.1.1-1_armhf.deb
+# TODO: install dependencies of the motion package
+apt-get -y install motion
+wget -O /tmp/motion.deb https://github.com/Motion-Project/motion/releases/download/release-4.1.1/pi_stretch_motion_4.1.1-1_armhf.deb
+dpkg --install /tmp/motion.deb
 # Install motion config and service
 chown pi:pi /var/lib/motion
+chmod a+rx /var/lib/motion
 mv /etc/motion/motion.conf /etc/motion/motion.conf_old
 ln -s /opt/fruitnanny/configuration/motion/motion.conf /etc/motion/motion.conf
 update-rc.d motion disable
