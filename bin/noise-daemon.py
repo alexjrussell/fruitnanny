@@ -149,19 +149,29 @@ class NoiseRecorder:
         # Stop recording
         self.pipeline.set_state(Gst.State.READY)
         syslog.syslog("Stopped recording")
-        try:
-        # Combine the video and audio
-            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i " + self.target_dir + "/" + self.rec_id + ".mkv -itsoffset 2.0 -i " + self.target_dir + "/" + self.rec_id + ".wav -c copy -shortest " + self.target_dir + "/" + self.rec_id + "_joined.mkv", shell=True)
-            # Delete the unwanted files
-            os.remove('{}/{}.mkv'.format(self.target_dir, self.rec_id))
+        new_name = self.rec_id
+        if new_name.startswith('.'):
+            new_name = new_name[1:]
+        if not os.path.isfile(self.target_dir + "/" + self.rec_id + ".wav"):
+            syslog.syslog("WARNING - Audio file missing: " + self.target_dir + "/" + self.rec_id + ".wav")
+            os.rename('{}/{}.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
+            os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
+        elif os.path.getsize(self.target_dir + "/" + self.rec_id + ".wav") == 0:
+            syslog.syslog("WARNING - Audio file has 0 bytes: " + self.target_dir + "/" + self.rec_id + ".wav")
+            os.rename('{}/{}.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
             os.remove('{}/{}.wav'.format(self.target_dir, self.rec_id))
             os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
-            new_name = self.rec_id
-            if new_name.startswith('.'):
-                new_name = new_name[1:]
-            os.rename('{}/{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
-        except:
-            syslog.syslog("Failed to combine audio and video files")
+        else:
+            try:
+            # Combine the video and audio
+                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i " + self.target_dir + "/" + self.rec_id + ".mkv -itsoffset 0.5 -i " + self.target_dir + "/" + self.rec_id + ".wav -c copy -shortest " + self.target_dir + "/" + self.rec_id + "_joined.mkv", shell=True)
+                # Delete the unwanted files
+                os.remove('{}/{}.mkv'.format(self.target_dir, self.rec_id))
+                os.remove('{}/{}.wav'.format(self.target_dir, self.rec_id))
+                os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
+                os.rename('{}/{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
+            except:
+                syslog.syslog("Failed to combine audio and video files")
 
 
 def start_listener():
