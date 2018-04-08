@@ -38,7 +38,7 @@ syslog.syslog("Started Xvfb on display " + os.environ['DISPLAY'])
 class NoiseDetector:
     def __init__(self):
         test = """
-        alsasrc device=plug:dsnooper ! level ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host=127.0.0.1 port=5002
+        alsasrc device=plughw:1,0 ! level ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host=127.0.0.1 port=5002
         """
         self.pipeline = Gst.parse_launch(test)
         self.bus = self.pipeline.get_bus()
