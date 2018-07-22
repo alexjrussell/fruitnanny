@@ -53,7 +53,7 @@ var AudioSpectrumWidget = (function(){
         };
         var step = Math.round(array.length / meterNum); //sample limited data from the total array
         ctx.clearRect(0, 0, cwidth, cheight);
-        for (var i = 0; i < meterNum; i++) {
+        for (var i = 1; i < meterNum; i++) {
             var value = array[i * step];
             if (capYPositionArray.length < Math.round(meterNum)) {
                 capYPositionArray.push(value);
