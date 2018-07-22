@@ -11,11 +11,15 @@ var VideoPlayer = (function () {
         light = null,
         mute = null,
         fullscreen = null
+    var light_switch = config.light_switch;
 
 
     var init = function() {
         streamContext = StreamContext;
-        lightController = IRLightController;
+        lightController = null;
+        if (light_switch) {
+            lightController = IRLightController;
+        }
         videoContainer = document.getElementById('videoContainer');
         video = document.getElementById('video');
         videoControls = document.getElementById('video-controls');
@@ -30,15 +34,19 @@ var VideoPlayer = (function () {
                             }
                         });
         playpause = document.getElementById('playpause');
-        light = document.getElementById('light');
+        if (light_switch) {
+            light = document.getElementById('light');
+        }
         mute = document.getElementById('mute');
         fullscreen = document.getElementById('fs');
 
         setupButtons();
         setupFullScreen();
-        lightController.status(function(state) {
-            light.dataset.state = state;
-        });
+        if (light_switch) {
+            lightController.status(function(state) {
+                light.dataset.state = state;
+            });
+        }
         video.controls = false;
         videoControls.setAttribute('data-state', 'visible');
     }
@@ -53,17 +61,19 @@ var VideoPlayer = (function () {
             }
         });
 
-        light.addEventListener('click', function(e) {
-            lightController.status(function(state) {
-                if (state === 'on') {
-                    lightController.turnoff();
-                    light.dataset.state = 'off';
-                } else {
-                    lightController.turnon();
-                    light.dataset.state = 'on';
-                }
-            })
-        });
+        if (light_switch) {
+            light.addEventListener('click', function(e) {
+                lightController.status(function(state) {
+                    if (state === 'on') {
+                        lightController.turnoff();
+                        light.dataset.state = 'off';
+                    } else {
+                        lightController.turnon();
+                        light.dataset.state = 'on';
+                    }
+                })
+            });
+        }
 
         mute.addEventListener('click', function(e) {
             streamContext.mute()

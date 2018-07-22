@@ -5,7 +5,9 @@ var DHT = (function ($) {
   var temperature_textbox = null;
   var humidity_widget = null;
   var humidity_textbox = null;
-  var temp_unit = config.temp_unit
+  var display_temperature = config.display_temperature;
+  var display_humidity = config.display_humidity;
+  var temp_unit = config.temp_unit;
 
   var temp_in_unit = function(temp_unit, t) {
     if (temp_unit.toUpperCase() === "F") {
@@ -19,7 +21,8 @@ var DHT = (function ($) {
   }
   
   var init = function(){
-    temperature_widget = new JustGage({
+    if (display_temperature) {
+      temperature_widget = new JustGage({
                             id: "temperature",
                             value: 0,
                             min: temp_in_unit(temp_unit, 10),
@@ -34,9 +37,11 @@ var DHT = (function ($) {
                             levelColorsGradient: false
                          });
 
-    temperature_textbox = $("#fs-temperature");
+      temperature_textbox = $("#fs-temperature");
+    }
 
-    humidity_widget = new JustGage({
+    if (display_humidity) {
+      humidity_widget = new JustGage({
                             id: "humidity",
                             value: 0,
                             min: 0,
@@ -51,12 +56,15 @@ var DHT = (function ($) {
                             levelColorsGradient: false
                           });
 
-    humidity_textbox = $("#fs-humidity");
+      humidity_textbox = $("#fs-humidity");
+    }
 
-    update_values(temp_unit);
-    setInterval(function() {
-        update_values(temp_unit)
-    }, 2 * 60 * 1000)
+    if (display_temperature || display_humidity) {
+      update_values(temp_unit);
+      setInterval(function() {
+          update_values(temp_unit)
+      }, 2 * 60 * 1000)
+    }
   }
 
   var update_values = function(temp_unit) {
@@ -65,10 +73,14 @@ var DHT = (function ($) {
         var t = Math.round(data.temperature);
         t = temp_in_unit(temp_unit, t)
         var h = Math.round(data.humidity);
-        temperature_widget.refresh(t);
-        temperature_textbox.html(t + "&deg; " + temp_unit)
-        humidity_widget.refresh(h);
-        humidity_textbox.text(h + "%");
+        if (display_temperature) {
+          temperature_widget.refresh(t);
+          temperature_textbox.html(t + "&deg; " + temp_unit)
+        }
+        if (display_humidity) {
+          humidity_widget.refresh(h);
+          humidity_textbox.text(h + "%");
+        }
     }).fail(function(err) {
         console.log( "error: " + err );
     })
