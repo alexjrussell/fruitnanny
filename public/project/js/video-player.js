@@ -7,16 +7,18 @@ var VideoPlayer = (function () {
         video = null,
         videoControls = null,
         volume_slider = null,
+        microphone = null,
+        mic_slider = null,
         playpause = null,
         light = null,
         mute = null,
         fullscreen = null
     var light_switch = config.light_switch;
+    var microphone_level = config.microphone_level;
 
 
     var init = function() {
         streamContext = StreamContext;
-        lightController = null;
         if (light_switch) {
             lightController = IRLightController;
         }
@@ -33,6 +35,19 @@ var VideoPlayer = (function () {
                                 return 'Current value: ' + value;
                             }
                         });
+        if (microphone_level) {
+            microphone = Microphone;
+            mic_slider = $('#mic_slider').slider({
+                                handle: "custom",
+                                min: 0,
+                                max: 100,
+                                step: 3,
+                                value: 50,
+                                formatter: function(value) {
+                                    return 'Current value: ' + value;
+                                }
+                            });
+        }
         playpause = document.getElementById('playpause');
         if (light_switch) {
             light = document.getElementById('light');
@@ -82,6 +97,12 @@ var VideoPlayer = (function () {
         volume_slider.on('change', function(e){
             streamContext.set_volume(e.value.newValue);
         });
+
+        if (microphone_level) {
+            mic_slider.on('change', function(e){
+                microphone.setlevel(e.value.newValue)
+            });
+        }
 
         fs.addEventListener('click', function(e) {
             handleFullscreen();
