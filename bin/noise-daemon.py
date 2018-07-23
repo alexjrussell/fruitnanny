@@ -46,7 +46,6 @@ class NoiseDetector:
         self.bus.connect('message', self.playerbinMessage)
         self.event_time = None
         self.shutdown = False
-        #threading.Thread.__init__(self)
 
     def playerbinMessage(self, bus, message):
         if message.type == Gst.MessageType.ERROR:
@@ -133,13 +132,12 @@ class NoiseRecorder:
         self.target_dir = "/var/lib/motion"
         pl_string = "alsasrc device=plug:dsnooper ! wavenc ! filesink location=\"{}/{}.wav\"".format(self.target_dir, self.rec_id)
         self.pipeline = Gst.parse_launch(pl_string)
-        #self.bus = self.pipeline.get_bus()
-        #self.bus.add_signal_watch()
         self.playmode = True
 
     def start(self):
+        self.start_time = datetime.datetime.utcnow()
         self.pipeline.set_state(Gst.State.PLAYING)
-        syslog.syslog("Started recording")
+        syslog.syslog("Started recording audio")
         while self.playmode:
             time.sleep(1)
         time.sleep(1)
@@ -148,7 +146,9 @@ class NoiseRecorder:
     def stop(self):
         # Stop recording
         self.pipeline.set_state(Gst.State.READY)
-        syslog.syslog("Stopped recording")
+        self.end_time = datetime.datetime.utcnow()
+        # TODO: Output the duration
+        syslog.syslog("Stopped recording audio")
         new_name = self.rec_id
         if new_name.startswith('.'):
             new_name = new_name[1:]
