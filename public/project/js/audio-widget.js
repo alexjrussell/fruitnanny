@@ -91,7 +91,7 @@ var AudioSpectrumWidget = (function(){
 
     function onLevelChange( time ) {
         // clear the background
-        ctx.clearRect(0, 0, meterWidth, canvas.height);
+        ctx.clearRect(0, 0, volumeMeterWidth, canvas.height);
 
         // check if we're currently clipping
         if (meter.checkClipping())
