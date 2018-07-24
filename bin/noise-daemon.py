@@ -130,7 +130,7 @@ class NoiseRecorder:
     def __init__(self, rec_id):
         self.rec_id = rec_id
         self.target_dir = "/var/lib/motion"
-        pl_string = "alsasrc device=plug:dsnooper ! wavenc ! filesink location=\"{}/{}.wav\"".format(self.target_dir, self.rec_id)
+        pl_string = "alsasrc device=plug:dsnooper ! opusenc ! oggmux ! filesink location=\"{}/{}.ogg\"".format(self.target_dir, self.rec_id)
         self.pipeline = Gst.parse_launch(pl_string)
         self.playmode = True
 
@@ -152,22 +152,22 @@ class NoiseRecorder:
         new_name = self.rec_id
         if new_name.startswith('.'):
             new_name = new_name[1:]
-        if not os.path.isfile(self.target_dir + "/" + self.rec_id + ".wav"):
-            syslog.syslog("WARNING - Audio file missing: " + self.target_dir + "/" + self.rec_id + ".wav")
+        if not os.path.isfile(self.target_dir + "/" + self.rec_id + ".ogg"):
+            syslog.syslog("WARNING - Audio file missing: " + self.target_dir + "/" + self.rec_id + ".ogg")
             os.rename('{}/{}.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
             os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
-        elif os.path.getsize(self.target_dir + "/" + self.rec_id + ".wav") == 0:
-            syslog.syslog("WARNING - Audio file has 0 bytes: " + self.target_dir + "/" + self.rec_id + ".wav")
+        elif os.path.getsize(self.target_dir + "/" + self.rec_id + ".ogg") == 0:
+            syslog.syslog("WARNING - Audio file has 0 bytes: " + self.target_dir + "/" + self.rec_id + ".ogg")
             os.rename('{}/{}.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
-            os.remove('{}/{}.wav'.format(self.target_dir, self.rec_id))
+            os.remove('{}/{}.ogg'.format(self.target_dir, self.rec_id))
             os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
         else:
             try:
             # Combine the video and audio
-                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i " + self.target_dir + "/" + self.rec_id + ".mkv -itsoffset 0.5 -i " + self.target_dir + "/" + self.rec_id + ".wav -c copy -shortest " + self.target_dir + "/" + self.rec_id + "_joined.mkv", shell=True)
+                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i " + self.target_dir + "/" + self.rec_id + ".mkv -itsoffset 0.5 -i " + self.target_dir + "/" + self.rec_id + ".ogg -c copy -shortest " + self.target_dir + "/" + self.rec_id + "_joined.mkv", shell=True)
                 # Delete the unwanted files
                 os.remove('{}/{}.mkv'.format(self.target_dir, self.rec_id))
-                os.remove('{}/{}.wav'.format(self.target_dir, self.rec_id))
+                os.remove('{}/{}.ogg'.format(self.target_dir, self.rec_id))
                 os.remove('{}/{}.log'.format(self.target_dir, self.rec_id))
                 os.rename('{}/{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
             except:
