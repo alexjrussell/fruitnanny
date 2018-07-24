@@ -37,7 +37,15 @@ var StreamContext = (function() {
         gain.connect(audioContext.destination);
         initialized = true;
     }
-    
+
+    var getAudioContext = function() {
+        return audioContext;
+    }
+
+    var getMediaStreamSource = function() {
+        return source;
+    }
+
     var audioByteFrequencyData = function() {
         var array = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(array);
@@ -129,6 +137,8 @@ var StreamContext = (function() {
         onunmute: onunmute,
         pause_stream: pause_stream,
         audioByteFrequencyData: audioByteFrequencyData,
+        getAudioContext: getAudioContext,
+        getMediaStreamSource: getMediaStreamSource
     }
 
 }())

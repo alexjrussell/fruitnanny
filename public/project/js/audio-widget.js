@@ -22,7 +22,12 @@ var AudioSpectrumWidget = (function(){
         capYPositionArray = [], ////store the vertical position of hte caps for the preivous frame
         animationId = null,
         status = 0; //flag for sound is playing 1 or stopped 0
-        allCapsReachBottom = false; 
+        allCapsReachBottom = false;
+    var audioContext = null;
+    var meter = null;
+    var rafID = null;
+    var mediaStreamSource = null;
+    var meterWidth = 30;
     ctx = canvas.getContext('2d'),
     gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(1, '#0f0');
@@ -33,43 +38,77 @@ var AudioSpectrumWidget = (function(){
         fsaudiolevel.html("<p>"+data.average+"</p>");
     }
     var drawMeter = function() {
-        data = StreamContext.audioByteFrequencyData();
-        var array = data.full;
+        if (config.display_graphic_equalizer) {
+            data = StreamContext.audioByteFrequencyData();
+            var array = data.full;
 
-        updateAudioLevelText(data);
-        if (status === 0) {
-            //fix when some sounds end the value still not back to zero
-            for (var i = array.length - 1; i >= 0; i--) {
-                array[i] = 0;
+            updateAudioLevelText(data);
+            if (status === 0) {
+                //fix when some sounds end the value still not back to zero
+                for (var i = array.length - 1; i >= 0; i--) {
+                    array[i] = 0;
+                };
+                allCapsReachBottom = true;
+                for (var i = capYPositionArray.length - 1; i >= 0; i--) {
+                    allCapsReachBottom = allCapsReachBottom && (capYPositionArray[i] === 0);
+                };
+                if (allCapsReachBottom) {
+                    cancelAnimationFrame(animationId); //since the sound is stoped and animation finished, stop the requestAnimation to prevent potential memory leak,THIS IS VERY IMPORTANT!
+                    return;
+                };
             };
-            allCapsReachBottom = true;
-            for (var i = capYPositionArray.length - 1; i >= 0; i--) {
-                allCapsReachBottom = allCapsReachBottom && (capYPositionArray[i] === 0);
-            };
-            if (allCapsReachBottom) {
-                cancelAnimationFrame(animationId); //since the sound is stoped and animation finished, stop the requestAnimation to prevent potential memory leak,THIS IS VERY IMPORTANT!
-                return;
-            };
-        };
-        var step = Math.round(array.length / meterNum); //sample limited data from the total array
-        ctx.clearRect(0, 0, cwidth, cheight);
-        for (var i = 1; i < meterNum; i++) {
-            var value = array[i * step];
-            if (capYPositionArray.length < Math.round(meterNum)) {
-                capYPositionArray.push(value);
-            };
-            ctx.fillStyle = capStyle;
-            //draw the cap, with transition effect
-            if (value < capYPositionArray[i]) {
-                ctx.fillRect(i * 12, cheight - (--capYPositionArray[i]), meterWidth, capHeight);
-            } else {
-                ctx.fillRect(i * 12, cheight - value, meterWidth, capHeight);
-                capYPositionArray[i] = value;
-            };
-            ctx.fillStyle = gradient; //set the filllStyle to gradient for a better look
-            ctx.fillRect(i * 12 /*meterWidth+gap*/ , cheight - value + capHeight, meterWidth, cheight); //the meter
+            var step = Math.round(array.length / meterNum); //sample limited data from the total array
+            ctx.clearRect(0, 0, cwidth, cheight);
+            for (var i = 0; i < meterNum; i++) {
+                var value = array[i * step];
+                if (capYPositionArray.length < Math.round(meterNum)) {
+                    capYPositionArray.push(value);
+                };
+                ctx.fillStyle = capStyle;
+                //draw the cap, with transition effect
+                if (value < capYPositionArray[i]) {
+                    ctx.fillRect(i * 12, cheight - (--capYPositionArray[i]), meterWidth, capHeight);
+                } else {
+                    ctx.fillRect(i * 12, cheight - value, meterWidth, capHeight);
+                    capYPositionArray[i] = value;
+                };
+                ctx.fillStyle = gradient; //set the filllStyle to gradient for a better look
+                ctx.fillRect(i * 12 /*meterWidth+gap*/ , cheight - value + capHeight, meterWidth, cheight); //the meter
+            }
+            animationId = requestAnimationFrame(drawMeter);
+        } else {
+            audioContext = StreamContext.getAudioContext();
+            mediaStreamSource = StreamContext.getMediaStreamSource();
+
+            // Create a new volume meter and connect it.
+            meter = createAudioMeter(audioContext);
+            mediaStreamSource.connect(meter);
+
+            // kick off the visual updating
+            onLevelChange();
         }
-        animationId = requestAnimationFrame(drawMeter);
+    }
+
+    function onLevelChange( time ) {
+        // clear the background
+        ctx.clearRect(0, 0, meterWidth, canvas.height);
+
+        // check if we're currently clipping
+        if (meter.checkClipping())
+            ctx.fillStyle = "red";
+        else
+            ctx.fillStyle = "green";
+
+        var volume = meter.volume * 10;
+        console.log(volume);
+
+        // draw a bar based on the current volume
+        var barHeight = volume * canvas.height * 1.4;
+        console.log("bar height = " + barHeight);
+        ctx.fillRect(0, canvas.height - barHeight, meterWidth, barHeight);
+
+        // set up the next visual callback
+        rafID = window.requestAnimationFrame( onLevelChange );
     }
 
     var enable = function() {
