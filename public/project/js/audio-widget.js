@@ -27,7 +27,7 @@ var AudioSpectrumWidget = (function(){
     var meter = null;
     var rafID = null;
     var mediaStreamSource = null;
-    var meterWidth = 30;
+    var volumeMeterWidth = 30;
     ctx = canvas.getContext('2d'),
     gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(1, '#0f0');
@@ -100,12 +100,8 @@ var AudioSpectrumWidget = (function(){
             ctx.fillStyle = "green";
 
         var volume = meter.volume * 10;
-        console.log(volume);
-
-        // draw a bar based on the current volume
         var barHeight = volume * canvas.height * 1.4;
-        console.log("bar height = " + barHeight);
-        ctx.fillRect(0, canvas.height - barHeight, meterWidth, barHeight);
+        ctx.fillRect(0, canvas.height - barHeight, volumeMeterWidth, barHeight);
 
         // set up the next visual callback
         rafID = window.requestAnimationFrame( onLevelChange );
