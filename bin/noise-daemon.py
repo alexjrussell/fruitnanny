@@ -21,8 +21,7 @@ import threading
 
 LISTEN_PORT=5678
 
-DETECT_LEVEL=-15
-#DETECT_LEVEL=-30
+DETECT_LEVEL=-30
 # The amount of silence before an event is considered over
 EVENT_END_SILENCE=5
 
