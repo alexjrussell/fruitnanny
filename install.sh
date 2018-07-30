@@ -93,9 +93,6 @@ sudo -u pi pm2 start /opt/fruitnanny/server/app.js --name="fruitnanny"
 # Add the pi user to the pulse-access group
 adduser pi pulse-access
 
-# Install .asoundrc
-sudo -u pi ln -s /opt/fruitnanny/configuration/alsa/.asoundrc /home/pi/.asoundrc
-
 # Install gstreamer plugins
 apt-get -y install gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly gstreamer1.0-plugins-bad libgstreamer1.0-dev \

@@ -25,7 +25,7 @@ DETECT_LEVEL=-30
 # The amount of silence before an event is considered over
 EVENT_END_SILENCE=5
 
-recorder = None
+TARGET_DIR = "/var/lib/motion"
 
 # Kill any virtual frame buffer that has been left running
 os.system("pkill -u pi 'Xvfb'")
@@ -36,31 +36,31 @@ syslog.syslog("Started Xvfb on display " + os.environ['DISPLAY'])
 
 class NoiseDetector:
     def __init__(self):
-        test = """
-        alsasrc device=plug:dsnooper ! level ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host=127.0.0.1 port=5002
-        """
-        self.pipeline = Gst.parse_launch(test)
-        self.bus = self.pipeline.get_bus()
+        self.target_dir = TARGET_DIR
+        self.streamer = Gst.parse_launch("autoaudiosrc ! level ! audioconvert ! audioresample ! opusenc ! tee name=tee ! queue leaky=1 ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host={} port={}".format("127.0.0.1", "5002"))
+        self.streamer.get_by_name("tee").connect("pad-added", self.tee_pad_added)
+        self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
-        self.bus.connect('message', self.playerbinMessage)
+        self.bus.connect('message', self.on_message)
+        self.recording = False
         self.event_time = None
         self.shutdown = False
 
-    def playerbinMessage(self, bus, message):
+    def on_message(self, bus, message):
         if message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             syslog.syslog("Error: {} {}".format(err, debug))
         if message.type == Gst.MessageType.ELEMENT:
             struct = message.get_structure()
             if struct.get_name() == 'level':
-                #print "SOUND " + str(struct['peak'][0]), str(struct['decay'][0]), str(struct['rms'][0])
-                #syslog.syslog("SOUND " + str(struct['rms'][0]))
-                if struct['rms'][0] > DETECT_LEVEL:
+                level = struct.get_value('rms')[0]
+                #syslog.syslog("SOUND " + str(level))
+                if level > DETECT_LEVEL:
                     if self.event_time == None:
-                        syslog.syslog("Noise detected - event started - " + str(struct['rms'][0]))
+                        syslog.syslog("Noise detected - event started - " + str(level))
                         os.system("curl -s http://localhost:8080/0/config/set?emulate_motion=on > /dev/null")
                     self.event_time = datetime.datetime.utcnow()
-                    #syslog.syslog("SOUND " + str(struct['rms'][0]))
+                    #syslog.syslog("SOUND " + str(level))
                     #time.sleep(1)
                 elif self.event_time != None:
                     # See if the event is over
@@ -70,83 +70,35 @@ class NoiseDetector:
                         os.system("curl -s http://localhost:8080/0/config/set?emulate_motion=off > /dev/null")
 
     def start(self):
-        self.pipeline.set_state(Gst.State.PLAYING)
+        self.streamer.set_state(Gst.State.PLAYING)
         syslog.syslog("Noise detection enabled")
         while not self.shutdown:
             time.sleep(1)
-        self.pipeline.set_state(Gst.State.READY)
+        self.streamer.set_state(Gst.State.READY)
         syslog.syslog("Noise detection disabled")
         #time.sleep(1)
         #loop.quit()
 
-class NoiseHandler(BaseHTTPRequestHandler):
-    def _set_headers(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
+    def is_recording(self):
+        return self.recording
 
-    def do_GET(self):
-        global recorder
-        global noiseDetector
-        global httpd
-        global loop
-        syslog.syslog("Controller received a request - " + self.path)
-        query = urlparse(self.path).query
-        query_components = dict(qc.split("=") for qc in query.split("&"))
-        message = "Invalid request"
-        if 'start_rec' in query_components and query_components['start_rec'] == 'true':
-            if not recorder == None:
-                message = "Recording already in progress"
-            else:
-                rec_id = query_components['rec_id']
-                message = "Started recording"
-                recorder = NoiseRecorder(rec_id)
-                thread.start_new_thread(recorder.start, ())
-        if 'stop_rec' in query_components and query_components['stop_rec'] == 'true':
-            if not recorder == None:
-                message = "Stopped recording"
-                recorder.stop()
-                recorder = None
-            else:
-                message = "Recording not in progress"
-        if 'shutdown' in query_components and query_components['shutdown'] == 'true':
-            if not recorder == None:
-                message = "Stopped recording"
-                recorder.stop()
-                recorder = None
-            # TODO: Shutdown gracefully
-            noiseDetector.shutdown = True
-            thr = threading.Thread(target=stop_listener)
-            thr.start()
-            #httpd.shutdown()
-            message = "Shutting down"
-            loop.quit()
-        self._set_headers()
-        self.wfile.write("<html><body><h1>" + message + "</h1></body></html>")
-
-
-class NoiseRecorder:
-    def __init__(self, rec_id):
+    def start_recording(self, rec_id):
+        syslog.syslog("Started audio recording - " + rec_id)
+        self.recording = True
         self.rec_id = rec_id
-        self.target_dir = "/var/lib/motion"
-        pl_string = "alsasrc device=plug:dsnooper ! opusenc ! oggmux ! filesink location=\"{}/{}.ogg\"".format(self.target_dir, self.rec_id)
-        self.pipeline = Gst.parse_launch(pl_string)
-        self.playmode = True
+        # Add src pad to the tee
+        tee = self.streamer.get_by_name("tee")
+        self.tee_src = tee.get_request_pad("src_%u")
 
-    def start(self):
-        self.start_time = datetime.datetime.utcnow()
-        self.pipeline.set_state(Gst.State.PLAYING)
-        syslog.syslog("Started recording audio")
-        while self.playmode:
-            time.sleep(1)
-        time.sleep(1)
-        loop.quit()
-
-    def stop(self):
-        # Stop recording
-        self.pipeline.set_state(Gst.State.READY)
-        self.end_time = datetime.datetime.utcnow()
-        # TODO: Output the duration
+    def stop_recording(self):
+        # Stop the recorder
+        self.recorder.set_state(Gst.State.NULL)
+        self.tee_src.unlink(self.recorder.get_static_pad("sink"))
+        # Release the pad
+        self.streamer.get_by_name("tee").release_request_pad(self.tee_src)
+        self.streamer.remove(self.recorder)
+        self.recorder = None
+        # Combine the streams
         syslog.syslog("Stopped recording audio")
         new_name = self.rec_id
         if new_name.startswith('.'):
@@ -171,6 +123,62 @@ class NoiseRecorder:
                 os.rename('{}/{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, new_name))
             except:
                 syslog.syslog("Failed to combine audio and video files")
+        self.recording = False
+
+    def tee_pad_added(self, tee, pad):
+        print("Created tee pad: " + pad.get_name())
+        if not pad.get_name() == "src_0":
+            filename = self.target_dir + "/" + self.rec_id + ".ogg"
+            self.recorder = Gst.parse_bin_from_description("queue leaky=1 name=record_queue ! audio/x-opus ! oggmux ! filesink location={}".format(filename), True)
+            self.streamer.add(self.recorder)
+
+            pad_link_return = pad.link(self.recorder.get_static_pad("sink"))
+            if pad_link_return != Gst.PadLinkReturn.OK:
+                syslog.syslog("Invalid return from pad link: " + str(pad_link_return))
+
+            self.recorder.set_state(Gst.State.PLAYING)
+
+
+class NoiseHandler(BaseHTTPRequestHandler):
+    def _set_headers(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+
+    def do_GET(self):
+        global noiseDetector
+        global httpd
+        global loop
+        syslog.syslog("Controller received a request - " + self.path)
+        query = urlparse(self.path).query
+        query_components = dict(qc.split("=") for qc in query.split("&"))
+        message = "Invalid request"
+        if 'start_rec' in query_components and query_components['start_rec'] == 'true':
+            if noiseDetector.is_recording():
+                message = "Recording already in progress"
+            else:
+                rec_id = query_components['rec_id']
+                message = "Started recording"
+                thread.start_new_thread(noiseDetector.start_recording, (rec_id,))
+        if 'stop_rec' in query_components and query_components['stop_rec'] == 'true':
+            if noiseDetector.is_recording():
+                message = "Stopped recording"
+                noiseDetector.stop_recording()
+            else:
+                message = "Recording not in progress"
+        if 'shutdown' in query_components and query_components['shutdown'] == 'true':
+            if noiseDetector.is_recording():
+                message = "Stopped recording"
+                noiseDetector.stop_recording()
+            # TODO: Shutdown gracefully
+            noiseDetector.shutdown = True
+            thr = threading.Thread(target=stop_listener)
+            thr.start()
+            #httpd.shutdown()
+            message = "Shutting down"
+            loop.quit()
+        self._set_headers()
+        self.wfile.write("<html><body><h1>" + message + "</h1></body></html>")
 
 
 def start_listener():
