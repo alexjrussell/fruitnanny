@@ -1,7 +1,0 @@
-pcm.dsnooper {
-    type dsnoop
-    ipc_key 12345
-    slave {
-        pcm "hw:1,0" 
-    }
-}

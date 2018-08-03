@@ -153,12 +153,13 @@ python setup.py install
 
 # Install service files
 ln -s /opt/fruitnanny/configuration/systemd/noise.service /etc/systemd/system/
-ln -s /opt/fruitnanny/configuration/systemd/video.service /etc/systemd/system/
 ln -s /opt/fruitnanny/configuration/systemd/janus.service /etc/systemd/system/
+
+# Install dbus config, to allow motion to communicate with the recording daemon
+ln -s /opt/fruitnanny/configuration/dbus/org.freedesktop.fruitnanny.conf /etc/dbus-1/system.d/
 
 # Enable services
 systemctl enable noise
-systemctl enable video
 systemctl enable janus
 
 # Install nginx & rtmp module from source
