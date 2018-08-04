@@ -18,6 +18,6 @@ app.get("/settings", (req, res, next) => {
 app.use("/api/light", light_1.default);
 app.use("/api/dht", dht_1.default);
 app.use("/api/custom_button", custom_button_1.default);
-app.listen(7000, () => {
+app.listen(7000, 'localhost', () => {
     console.log("Fruitnanny app listening on port 7000!");
 });

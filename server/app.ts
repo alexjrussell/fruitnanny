@@ -24,6 +24,6 @@ app.use("/api/light", light);
 app.use("/api/dht", dht);
 app.use("/api/custom_button", custom_button);
 
-app.listen(7000, () => {
+app.listen(7000, 'localhost', () => {
     console.log("Fruitnanny app listening on port 7000!");
 });
