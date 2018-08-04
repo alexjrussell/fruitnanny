@@ -50,7 +50,7 @@ class AudioStreamer:
         self.recording = False
         self.shutdown = False
         self.target_dir = TARGET_DIR
-        self.streamer = Gst.parse_launch("autoaudiosrc ! level ! audioconvert ! audioresample ! opusenc ! tee name=tee ! queue leaky=1 ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host={} port={}".format("127.0.0.1", "5002"))
+        self.streamer = Gst.parse_launch("alsasrc device=hw:1 ! level ! audioconvert ! audioresample ! opusenc ! tee name=tee ! queue leaky=1 ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host={} port={}".format("127.0.0.1", "5002"))
         self.streamer.get_by_name("tee").connect("pad-added", self.tee_pad_added)
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
