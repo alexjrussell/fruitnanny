@@ -55,7 +55,7 @@ apt-get -y install vim git nano emacs libraspberrypi-dev autoconf automake libto
 pip install xvfbwrapper
 
 # Download & install nodejs
-curl -sL https://deb.nodesource.com/setup_6.x | bash -
+curl -sL https://deb.nodesource.com/setup_8.x | bash -
 apt install -y nodejs
 
 # Install nodejs process manager (PM2) for automatic nodejs app startup
@@ -89,6 +89,7 @@ sed -i "s/\"temp_unit\": \"C\"/\"temp_unit\": \"${temp_unit}\"/g" /opt/fruitnann
 cd /opt/fruitnanny
 sudo -u pi npm install
 sudo -u pi pm2 start /opt/fruitnanny/server/app.js --name="fruitnanny"
+sudo -u pi pm2 save
 
 # Add the pi user to the pulse-access group
 adduser pi pulse-access
@@ -152,14 +153,14 @@ cd /tmp/Adafruit_Python_DHT
 python setup.py install
 
 # Install service files
-ln -s /opt/fruitnanny/configuration/systemd/noise.service /etc/systemd/system/
+ln -s /opt/fruitnanny/configuration/systemd/fruitnanny.service /etc/systemd/system/
 ln -s /opt/fruitnanny/configuration/systemd/janus.service /etc/systemd/system/
 
 # Install dbus config, to allow motion to communicate with the recording daemon
 ln -s /opt/fruitnanny/configuration/dbus/org.freedesktop.fruitnanny.conf /etc/dbus-1/system.d/
 
 # Enable services
-systemctl enable noise
+systemctl enable fruitnanny
 systemctl enable janus
 
 # Install nginx & rtmp module from source
