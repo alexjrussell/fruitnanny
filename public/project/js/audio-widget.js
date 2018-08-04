@@ -12,6 +12,7 @@ var AudioSpectrumWidget = (function(){
 
     var canvas = document.getElementById('audiolevel'),
         fsaudiolevel = $('#fs-audiolevel'),
+        fsaudiolevelmeter = document.getElementById('fs-audiolevelmeter'),
         cwidth = canvas.width,
         cheight = canvas.height - 2,
         meterWidth = 10, //width of the meters in the spectrum
@@ -28,7 +29,9 @@ var AudioSpectrumWidget = (function(){
     var rafID = null;
     var mediaStreamSource = null;
     var volumeMeterWidth = 30;
+    var fsVolumeMeterWidth = 30;
     ctx = canvas.getContext('2d'),
+    fsAlCtx = fsaudiolevelmeter.getContext('2d'),
     gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(1, '#0f0');
     gradient.addColorStop(0.5, '#ff0');
@@ -92,16 +95,22 @@ var AudioSpectrumWidget = (function(){
     function onLevelChange( time ) {
         // clear the background
         ctx.clearRect(0, 0, volumeMeterWidth, canvas.height);
+        fsAlCtx.clearRect(0, 0, fsVolumeMeterWidth, fsaudiolevelmeter.height);
 
         // check if we're currently clipping
-        if (meter.checkClipping())
+        if (meter.checkClipping()) {
             ctx.fillStyle = "red";
-        else
+            fsAlCtx.fillStyle = "red";
+        } else {
             ctx.fillStyle = "green";
+            fsAlCtx.fillStyle = "white";
+        }
 
         var volume = meter.volume * 10;
         var barHeight = volume * canvas.height * 1.4;
         ctx.fillRect(0, canvas.height - barHeight, volumeMeterWidth, barHeight);
+        var fsBarHeight = volume * fsaudiolevelmeter.height * 1.4;
+        fsAlCtx.fillRect(0, fsaudiolevelmeter.height - fsBarHeight, fsVolumeMeterWidth, fsBarHeight);
 
         // set up the next visual callback
         rafID = window.requestAnimationFrame( onLevelChange );

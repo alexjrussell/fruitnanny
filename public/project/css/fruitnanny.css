@@ -167,6 +167,10 @@ button[data-state="off"][id="light"] {
     height:150px;
 }
 
+#fs-audiolevelmeter {
+    height: 60px;
+}
+
 #temperature {
 	height: 150px;
 }

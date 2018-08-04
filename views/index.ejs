@@ -8,7 +8,7 @@
         DHT.init();
         VideoPlayer.init();
         $("#light").toggle(config.light_switch);
-        $("#micsliderdiv").toggle(config.microphone_level);
+        //$("#micsliderdiv").toggle(config.microphone_level);
     });
     
 </script>
@@ -49,6 +49,7 @@
                 <div id="fs-temperature" ></div>
                 <div id="fs-humidity" ></div>
                 <div id="fs-audiolevel"></div>
+                <canvas id="fs-audiolevelmeter"></canvas>
               </div>
               
               <!--div id="temperature" class="test"></div-->
@@ -60,9 +61,9 @@
                   <i class="fa fa-lightbulb-o"></i>
                 </button>
                 <div class="empty">&nbsp;</div>
-                <div class="micsliderdiv">
+                <!--div class="micsliderdiv">
                   <input id="mic_slider" type="text" ></input>
-                </div>
+                </div-->
                 <button id="mute" type="button" data-state="mute">
                   <i class="fa fa-volume-up" aria-hidden="true"></i>
                 </button>
