@@ -5,7 +5,6 @@ let config = {
     "display_temperature": true,
     "display_humidity": true,
     "display_graphic_equalizer": true,
-    "microphone_level": true,
     "light_switch": true
 }
 module.exports = config;
