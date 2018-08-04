@@ -205,14 +205,18 @@ class FruitnannyController:
         self.audioStreamer = AudioStreamer(self)
         self.videoStreamer.start()
         self.audioStreamer.start()
+        self.initializing = True
+        self.init_start = datetime.datetime.utcnow()
 
     def set_mainloop(self, mainloop):
         self.mainloop = mainloop
 
     def on_signal(self, *args, **kwargs):
-        if not self.videoStreamer.is_playing() or not self.audioStreamer.is_playing():
-            # Ignore events if the streams are not playing yet
-            return
+        if self.initializing:
+            if self.init_start + datetime.timedelta(seconds=30) < datetime.datetime.utcnow():
+                self.initializing = False
+            else:
+                return
         syslog.syslog("Got event: {}".format(kwargs['event']))
         if kwargs['event'] == "MotionDetected":
             self.start_recording()
