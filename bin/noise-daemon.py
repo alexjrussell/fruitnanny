@@ -40,6 +40,9 @@ VIDEO_SYNC_OFFSET = "2"
 VIDEO_TIMESTAMP = True
 VIDEO_TIMESTAMP_FONT = "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf"
 
+DEBUG = False
+
+
 class AudioStreamer:
     def __init__(self, controller):
         self.controller = controller
@@ -60,7 +63,8 @@ class AudioStreamer:
             struct = message.get_structure()
             if struct.get_name() == 'level':
                 level = struct.get_value('rms')[0]
-                #syslog.syslog("LEVEL = " + str(level))
+                if DEBUG:
+                    syslog.syslog("LEVEL = " + str(level))
                 if level > DETECT_LEVEL:
                     syslog.syslog("Got event: NoiseDetected")
                     self.controller.start_recording()
@@ -113,10 +117,9 @@ class VideoStreamer:
         self.recording = False
         self.shutdown = False
         self.target_dir = TARGET_DIR
-        #self.streamer = Gst.parse_launch("rpicamsrc name=src preview=0 exposure-mode=night fullscreen=0 bitrate=1000000 ! video/x-h264,width=960,height=544,framerate=12/1 ! tee name=rectee ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=rtmpstream ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false rtmpstream. ! queue leaky=1 ! flvmux streamable=true ! rtmpsink location=rtmp://127.0.0.1:1935/cam sync=false")
-        #self.streamer = Gst.parse_launch("autovideosrc ! videoconvert ! x264enc ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=rtmpstream ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false rtmpstream. ! queue leaky=1 ! flvmux streamable=true ! rtmpsink location=rtmp://127.0.0.1:1935/cam sync=false")
-        self.streamer = Gst.parse_launch("autovideosrc ! videoconvert ! x264enc ! tee name=rectee ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=rtmpstream ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false")
-        self.streamer.get_by_name("rectee").connect("pad-added", self.tee_pad_added)
+        self.streamer = Gst.parse_launch("rpicamsrc name=src preview=0 exposure-mode=night fullscreen=0 bitrate=1000000 ! video/x-h264,width=960,height=544,framerate=12/1 ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=tee ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false tee. ! queue leaky=1 ! flvmux streamable=true ! rtmpsink location=rtmp://127.0.0.1:1935/cam sync=false")
+        #self.streamer = Gst.parse_launch("autovideosrc ! videoconvert ! x264enc ! tee name=rectee ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=rtmpstream ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false")
+        self.streamer.get_by_name("tee").connect("pad-added", self.tee_pad_added)
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
@@ -142,7 +145,7 @@ class VideoStreamer:
         self.recording = True
         self.rec_id = rec_id
         # Add src pad to the tee
-        tee = self.streamer.get_by_name("rectee")
+        tee = self.streamer.get_by_name("tee")
         self.tee_src = tee.get_request_pad("src_%u")
 
     def tee_pad_added(self, tee, pad):
@@ -160,7 +163,7 @@ class VideoStreamer:
         self.recorder.set_state(Gst.State.NULL)
         self.tee_src.unlink(self.recorder.get_static_pad("sink"))
         # Release the pad
-        self.streamer.get_by_name("rectee").release_request_pad(self.tee_src)
+        self.streamer.get_by_name("tee").release_request_pad(self.tee_src)
         self.streamer.remove(self.recorder)
         self.recorder = None
         self.recording = False
@@ -265,7 +268,7 @@ Gst.init(None)
 # Make sure the pulse audio daemon is running
 os.system("/usr/bin/pulseaudio --start --log-target=syslog")
 # TODO: See if there is something that it can wait for
-time.sleep(6)
+time.sleep(8)
 # Start the detector thread
 GObject.threads_init()
 # Start the controller
