@@ -1,12 +1,12 @@
 # Service file for noise
 
 [Unit]
-Description=Noise detection
+Description=Fruitnanny daemon
 After=network.target syslog.target motion.service
 
 [Service]
 Type=simple
-ExecStart=/opt/fruitnanny/bin/noise-daemon.py
+ExecStart=/opt/fruitnanny/bin/fruitnanny-daemon.py
 LimitNOFILE=8000
 WorkingDirectory=/opt/fruitnanny
 KillMode=mixed
