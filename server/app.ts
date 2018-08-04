@@ -5,6 +5,7 @@ import custom_button from "./routes/custom_button";
 import dht from "./routes/dht";
 import express = require("express");
 import light from "./routes/light";
+import microphone from "./routes/microphone";
 
 let app = express();
 
@@ -23,7 +24,8 @@ app.get("/settings", (req: express.Request, res: express.Response, next: express
 app.use("/api/light", light);
 app.use("/api/dht", dht);
 app.use("/api/custom_button", custom_button);
+app.use("/api/microphone", microphone);
 
-app.listen(7000, 'localhost', () => {
+app.listen(7000, () => {
     console.log("Fruitnanny app listening on port 7000!");
 });

@@ -7,11 +7,14 @@ var VideoPlayer = (function () {
         video = null,
         videoControls = null,
         volume_slider = null,
+        microphone = null,
+        mic_slider = null,
         playpause = null,
         light = null,
         mute = null,
         fullscreen = null
     var light_switch = config.light_switch;
+    var microphone_level = config.microphone_level;
 
 
     var init = function() {
@@ -32,6 +35,19 @@ var VideoPlayer = (function () {
                                 return 'Current value: ' + value;
                             }
                         });
+        if (microphone_level) {
+            //microphone = Microphone;
+            mic_slider = $('#mic_slider').slider({
+                                handle: "custom",
+                                min: 0,
+                                max: 100,
+                                step: 3,
+                                value: getMicLevel(),
+                                formatter: function(value) {
+                                    return 'Current value: ' + value;
+                                }
+                            });
+        }
         playpause = document.getElementById('playpause');
         if (light_switch) {
             light = document.getElementById('light');
@@ -82,6 +98,12 @@ var VideoPlayer = (function () {
             streamContext.set_volume(e.value.newValue);
         });
 
+        if (microphone_level) {
+            mic_slider.on('change', function(e){
+                microphone.setlevel(e.value.newValue)
+            });
+        }
+
         fs.addEventListener('click', function(e) {
             handleFullscreen();
         });
@@ -101,6 +123,10 @@ var VideoPlayer = (function () {
             }
             
         });
+    }
+
+    var getMicLevel = function() {
+        return $.get("/api/microphone/getlevel");
     }
 
     var setupFullScreen = function() {

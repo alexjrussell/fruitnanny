@@ -69,6 +69,15 @@ video {
   	background-repeat:no-repeat;*/
 }
 
+.controls .micsliderdiv {
+    width: 16.5%;
+  	background:transparent;
+}
+.controls .micsliderdiv > * {
+	width: 100%;
+  	background:transparent;
+}
+
 .controls .sliderdiv {
     width: 16.5%;
   	background:transparent;
