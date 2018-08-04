@@ -37,7 +37,7 @@ MAXIMUM_RECORDING_LENGTH = 20
 TARGET_DIR = "/var/lib/motion"
 
 VIDEO_SYNC_OFFSET = "2"
-VIDEO_TIMESTAMP = True
+VIDEO_TIMESTAMP = False
 VIDEO_TIMESTAMP_FONT = "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf"
 
 DEBUG = False
