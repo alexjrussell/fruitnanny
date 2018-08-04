@@ -46,6 +46,7 @@ DEBUG = False
 class AudioStreamer:
     def __init__(self, controller):
         self.controller = controller
+        self.playing = False
         self.recording = False
         self.shutdown = False
         self.target_dir = TARGET_DIR
@@ -72,11 +73,15 @@ class AudioStreamer:
 
     def start(self):
         self.streamer.set_state(Gst.State.PLAYING)
+        self.playing = True
         syslog.syslog("Audio stream started")
 
     def stop(self):
         self.streamer.set_state(Gst.State.READY)
         syslog.syslog("Audio stream stopped")
+
+    def is_playing(self):
+        return self.playing
 
     def is_recording(self):
         return self.recording
@@ -115,6 +120,7 @@ class VideoStreamer:
 
     def __init__(self, controller):
         self.controller = controller
+        self.playing = False
         self.recording = False
         self.shutdown = False
         self.target_dir = TARGET_DIR
@@ -133,11 +139,15 @@ class VideoStreamer:
 
     def start(self):
         self.streamer.set_state(Gst.State.PLAYING)
+        self.playing = True
         syslog.syslog("Video stream started")
 
     def stop(self):
         self.streamer.set_state(Gst.State.READY)
         syslog.syslog("Video stream stopped")
+
+    def is_playing(self):
+        return self.playing
 
     def is_recording(self):
         return self.recording
@@ -200,6 +210,9 @@ class FruitnannyController:
         self.mainloop = mainloop
 
     def on_signal(self, *args, **kwargs):
+        if not self.videoStreamer.is_playing() or not self.audioStreamer.is_playing():
+            # Ignore events if the streams are not playing yet
+            return
         syslog.syslog("Got event: {}".format(kwargs['event']))
         if kwargs['event'] == "MotionDetected":
             self.start_recording()
