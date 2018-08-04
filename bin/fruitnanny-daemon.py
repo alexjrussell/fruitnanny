@@ -59,6 +59,7 @@ class AudioStreamer:
         if message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             syslog.syslog("Error: {} {}".format(err, debug))
+            self.controller.exit(-1)
         if message.type == Gst.MessageType.ELEMENT:
             struct = message.get_structure()
             if struct.get_name() == 'level':
@@ -128,6 +129,7 @@ class VideoStreamer:
         if message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             syslog.syslog("Error: {} {}".format(err, debug))
+            self.controller.exit(-1)
 
     def start(self):
         self.streamer.set_state(Gst.State.PLAYING)
@@ -173,6 +175,8 @@ class VideoStreamer:
 class FruitnannyController:
 
     def __init__(self):
+        self.mainloop = None
+        self.exitcode = 0
         # Start the dbus listener
         DBusGMainLoop(set_as_default=True)
         self.bus = dbus.SystemBus()
@@ -191,6 +195,9 @@ class FruitnannyController:
         self.audioStreamer = AudioStreamer(self)
         self.videoStreamer.start()
         self.audioStreamer.start()
+
+    def set_mainloop(self, mainloop):
+        self.mainloop = mainloop
 
     def on_signal(self, *args, **kwargs):
         syslog.syslog("Got event: {}".format(kwargs['event']))
@@ -256,6 +263,13 @@ class FruitnannyController:
                 syslog.syslog("Failed to combine audio and video files - " + str(e))
         self.recording = False
 
+    def exit(self, exitcode):
+        self.exitcode = exitcode
+        self.mainloop.quit()
+
+    def get_exitcode(self):
+        return self.exitcode
+
 
 # Kill any virtual frame buffer that has been left running
 os.system("pkill -u {} 'Xvfb'".format(getpass.getuser()))
@@ -275,5 +289,6 @@ GObject.threads_init()
 controller = FruitnannyController()
 # Start the main loop
 loop = GLib.MainLoop()
+controller.set_mainloop(loop)
 loop.run()
-sys.exit(0)
+sys.exit(controller.get_exitcode())
