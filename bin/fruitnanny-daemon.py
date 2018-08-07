@@ -17,6 +17,10 @@ from xvfbwrapper import Xvfb
 import subprocess
 import syslog
 import threading
+import numpy
+import socket
+import picamera
+import picamera.array
 
 # TODO:
 # - Add recording start notifications
@@ -36,9 +40,10 @@ MAXIMUM_RECORDING_LENGTH = 20
 
 TARGET_DIR = "/var/lib/motion"
 
+VIDEO_WIDTH = 960
+VIDEO_HEIGHT = 544
+VIDEO_FPS = 12
 VIDEO_SYNC_OFFSET = "2"
-VIDEO_TIMESTAMP = False
-VIDEO_TIMESTAMP_FONT = "/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf"
 
 DEBUG = False
 
@@ -124,9 +129,12 @@ class VideoStreamer:
         self.recording = False
         self.shutdown = False
         self.target_dir = TARGET_DIR
-        self.streamer = Gst.parse_launch("rpicamsrc name=src preview=0 exposure-mode=night fullscreen=0 bitrate=1000000 ! video/x-h264,width=960,height=544,framerate=12/1 ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=tee ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false tee. ! queue leaky=1 ! flvmux streamable=true ! rtmpsink location=rtmp://127.0.0.1:1935/cam sync=false")
-        #self.streamer = Gst.parse_launch("autovideosrc ! videoconvert ! x264enc ! tee name=rectee ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! tee name=rtmpstream ! queue leaky=1 ! rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port=5004 sync=false")
-        self.streamer.get_by_name("tee").connect("pad-added", self.tee_pad_added)
+        self.camera = None
+        self.connection = None
+        self.resolution = (VIDEO_WIDTH, VIDEO_HEIGHT)
+        self.framerate = VIDEO_FPS
+        # Create the pipeline that puts h264 into rtp
+        self.streamer = Gst.parse_launch("udpsrc address=127.0.0.1 port=5003 ! video/x-h264 ! h264parse ! queue ! rtph264pay config-interval=1 pt=96 ! udpsink port=5004")
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
@@ -138,12 +146,62 @@ class VideoStreamer:
             self.controller.exit(-1)
 
     def start(self):
+        # Start the gstreamer pipeline
         self.streamer.set_state(Gst.State.PLAYING)
+        # Connect to the udp socket of the pipeline
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        connect_attempts = 0
+        while connect_attempts != -1:
+            try:
+                self.client_socket.connect(('127.0.0.1', 5003))
+                connect_attempts = -1
+            except Exception as ex:
+                time.sleep(1)
+                connect_attempts += 1
+                if connect_attempts >= 30:
+                    syslog.syslog("Timeout connecting to gstreamer pipeline")
+                    self.controller.exit(-1)
+                    return
+        # Open a file that connects to the udp socket
+        self.connection = self.client_socket.makefile('wb')
+        # Start the streaming in a thread
+        stream_thread = threading.Thread(target=self.stream)
+        stream_thread.daemon = True
+        stream_thread.start()
+
+    def stream(self):
         self.playing = True
         syslog.syslog("Video stream started")
+        with picamera.PiCamera(resolution=self.resolution, framerate=self.framerate) as self.camera:
+            self.camera.start_preview()
+            # TODO: Other camera settings go here
+            #self.camera.annotate_background = True
+            #self.camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            syslog.syslog('Waiting 2 seconds for the camera to warm up')
+            time.sleep(2)
+            try:
+                syslog.syslog('Started streaming')
+                self.camera.start_recording(
+                    self.connection, format='h264', splitter_port=1,
+                    motion_output=MotionDetector(self.camera, self.controller)
+                )
+                self.camera.wait_recording(timeout=1, splitter_port=1)
+                while not self.shutdown:
+                    time.sleep(1)
+            except Exception as ex:
+                syslog.syslog("ERROR: " + str(ex))
+            finally:
+                self.camera.stop_recording(splitter_port=1)
+                self.camera.stop_preview()
+                syslog.syslog('Stopped streaming')
+                # Close the socket
+                self.connection.close()
+                self.client_socket.close()
+                # Stop the gstreamer pipeline
+                self.streamer.set_state(Gst.State.READY)
 
     def stop(self):
-        self.streamer.set_state(Gst.State.READY)
+        self.shutdown = True
         syslog.syslog("Video stream stopped")
 
     def is_playing(self):
@@ -156,30 +214,40 @@ class VideoStreamer:
         syslog.syslog("Started video recording - " + rec_id)
         self.recording = True
         self.rec_id = rec_id
-        # Add src pad to the tee
-        tee = self.streamer.get_by_name("tee")
-        self.tee_src = tee.get_request_pad("src_%u")
-
-    def tee_pad_added(self, tee, pad):
-        if not pad.get_name() == "src_0":
-            filename = "{}/.{}.mkv".format(self.target_dir, self.rec_id)
-            self.recorder = Gst.parse_bin_from_description("queue leaky=1 name=record_queue ! video/x-h264 ! matroskamux ! filesink location={}".format(filename), True)
-            self.streamer.add(self.recorder)
-            pad_link_return = pad.link(self.recorder.get_static_pad("sink"))
-            if pad_link_return != Gst.PadLinkReturn.OK:
-                syslog.syslog("Invalid return from pad link: " + str(pad_link_return))
-            self.recorder.set_state(Gst.State.PLAYING)
+        filename = "{}/.{}.h264".format(self.target_dir, self.rec_id)
+        self.camera.start_recording(
+            filename, format='h264', splitter_port=2
+        )
+        self.camera.wait_recording(timeout=1, splitter_port=2)
 
     def stop_recording(self):
-        # Stop the recorder
-        self.recorder.set_state(Gst.State.NULL)
-        self.tee_src.unlink(self.recorder.get_static_pad("sink"))
-        # Release the pad
-        self.streamer.get_by_name("tee").release_request_pad(self.tee_src)
-        self.streamer.remove(self.recorder)
-        self.recorder = None
-        self.recording = False
         syslog.syslog("Stopped recording video")
+        self.camera.stop_recording(splitter_port=2)
+        self.recording = False
+
+
+class MotionDetector(picamera.array.PiMotionAnalysis):
+    def __init__(self, camera, controller):
+        super(MotionDetector, self).__init__(camera)
+        self.controller = controller
+        self.first = True
+
+    def analyse(self, a):
+        a = numpy.sqrt(
+            numpy.square(a['x'].astype(numpy.float)) +
+            numpy.square(a['y'].astype(numpy.float))
+        ).clip(0, 255).astype(numpy.uint8)
+        # If there are 50 vectors detected with a magnitude of 60.
+        # We consider movement to be detected.
+        if (a > 60).sum() > 50:
+            # Ignore the first detection, the camera sometimes
+            # triggers a false positive due to camera warmup.
+            if self.first:
+                self.first = False
+                syslog.syslog("Ignoring first detection")
+                return
+            syslog.syslog("Got event: MotionDetected")
+            self.controller.start_recording()
 
 
 class FruitnannyController:
@@ -252,14 +320,15 @@ class FruitnannyController:
         syslog.syslog("Recording duration = {} seconds".format(str(duration)))
         # Combine the streams
         audio_file = "{}/.{}.ogg".format(self.target_dir, self.rec_id)
-        video_file = "{}/.{}.mkv".format(self.target_dir, self.rec_id)
+        video_file = "{}/.{}.h264".format(self.target_dir, self.rec_id)
         if not os.path.isfile(audio_file):
             syslog.syslog("WARNING - Audio file missing: " + audio_file)
-            os.rename(video_file, '{}/{}.mkv'.format(self.target_dir, self.rec_id))
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {} -c copy {}/{}.mkv".format(video_file, self.target_dir, self.rec_id), shell=True)
+            os.remove(video_file)
         elif os.path.getsize(audio_file) == 0:
             syslog.syslog("WARNING - Audio file has 0 bytes: " + audio_file)
-            os.rename(video_file, '{}/{}.mkv'.format(self.target_dir, self.rec_id))
-            os.remove(audio_file)
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {} -c copy {}/{}.mkv".format(video_file, self.target_dir, self.rec_id), shell=True)
+            os.remove(video_file)
         else:
             try:
                 # Combine the video and audio
@@ -268,13 +337,6 @@ class FruitnannyController:
                 os.remove(video_file)
                 os.remove(audio_file)
                 os.rename('{}/.{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, self.rec_id))
-                if VIDEO_TIMESTAMP:
-                    # Calculate the time offset of the video start
-                    offset_seconds = str(int(self.timestamp_offset))
-                    # Add timestamp to the video
-                    subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {}/{}.mkv -vf \"drawtext=fontfile={}: text='%{{pts\\:localtime\\:{}}}': fontcolor=white@0.8: x=10: y=10\" -c:a copy -crf 26 {}/.{}_timestamped.mkv".format(self.target_dir, self.rec_id, VIDEO_TIMESTAMP_FONT, offset_seconds, self.target_dir, self.rec_id), shell=True)
-                    os.remove('{}/{}.mkv'.format(self.target_dir, self.rec_id))
-                    os.rename('{}/.{}_timestamped.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, self.rec_id))
                 syslog.syslog("New recording file {}/{}.mkv".format(self.target_dir, self.rec_id))
             except Exception,e:
                 syslog.syslog("Failed to combine audio and video files - " + str(e))

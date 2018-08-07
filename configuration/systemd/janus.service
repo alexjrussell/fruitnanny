@@ -1,7 +1,7 @@
 [Unit]
 Description=Janus WebRTC gateway
 After=network.target
-Requires=noise,video
+Requires=fruitnanny
 
 [Service]
 User=pi

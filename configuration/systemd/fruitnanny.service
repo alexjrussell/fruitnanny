@@ -2,7 +2,7 @@
 
 [Unit]
 Description=Fruitnanny daemon
-After=network.target syslog.target motion.service
+After=network.target syslog.target
 
 [Service]
 Type=simple
