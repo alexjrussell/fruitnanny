@@ -18,7 +18,6 @@ import subprocess
 import syslog
 import threading
 import numpy
-import socket
 import picamera
 import picamera.array
 
@@ -42,8 +41,12 @@ TARGET_DIR = "/var/lib/motion"
 
 VIDEO_WIDTH = 960
 VIDEO_HEIGHT = 544
-VIDEO_FPS = 12
-VIDEO_SYNC_OFFSET = "2"
+VIDEO_FPS = 15
+VIDEO_SYNC_OFFSET = "0.1"
+
+VIDEO_TIMESTAMP = True
+VIDEO_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+VIDEO_TIMESTAMP_SIZE = 18
 
 DEBUG = False
 
@@ -130,11 +133,13 @@ class VideoStreamer:
         self.shutdown = False
         self.target_dir = TARGET_DIR
         self.camera = None
-        self.connection = None
         self.resolution = (VIDEO_WIDTH, VIDEO_HEIGHT)
         self.framerate = VIDEO_FPS
+        self.timestamp = VIDEO_TIMESTAMP
+        self.timestamp_format = VIDEO_TIMESTAMP_FORMAT
+        self.timestamp_size = VIDEO_TIMESTAMP_SIZE
         # Create the pipeline that puts h264 into rtp
-        self.streamer = Gst.parse_launch("udpsrc address=127.0.0.1 port=5003 ! video/x-h264 ! h264parse ! queue ! rtph264pay config-interval=1 pt=96 ! udpsink port=5004")
+        self.streamer = Gst.parse_launch("appsrc name=appsrc is-live=true ! video/x-h264 ! h264parse ! queue max-size-bytes=0 max-size-buffers=0 ! rtph264pay config-interval=1 pt=96 ! udpsink port=5004")
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
@@ -148,22 +153,6 @@ class VideoStreamer:
     def start(self):
         # Start the gstreamer pipeline
         self.streamer.set_state(Gst.State.PLAYING)
-        # Connect to the udp socket of the pipeline
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        connect_attempts = 0
-        while connect_attempts != -1:
-            try:
-                self.client_socket.connect(('127.0.0.1', 5003))
-                connect_attempts = -1
-            except Exception as ex:
-                time.sleep(1)
-                connect_attempts += 1
-                if connect_attempts >= 30:
-                    syslog.syslog("Timeout connecting to gstreamer pipeline")
-                    self.controller.exit(-1)
-                    return
-        # Open a file that connects to the udp socket
-        self.connection = self.client_socket.makefile('wb')
         # Start the streaming in a thread
         stream_thread = threading.Thread(target=self.stream)
         stream_thread.daemon = True
@@ -173,30 +162,27 @@ class VideoStreamer:
         self.playing = True
         syslog.syslog("Video stream started")
         with picamera.PiCamera(resolution=self.resolution, framerate=self.framerate) as self.camera:
-            self.camera.start_preview()
-            # TODO: Other camera settings go here
-            #self.camera.annotate_background = True
-            #self.camera.annotate_text = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if self.timestamp:
+                self.camera.annotate_text_size = self.timestamp_size
+                self.camera.annotate_text = datetime.datetime.now().strftime(self.timestamp_format)
             syslog.syslog('Waiting 2 seconds for the camera to warm up')
             time.sleep(2)
             try:
                 syslog.syslog('Started streaming')
                 self.camera.start_recording(
-                    self.connection, format='h264', splitter_port=1,
+                    StreamSender(self.streamer), format='h264', splitter_port=1,
                     motion_output=MotionDetector(self.camera, self.controller)
                 )
-                self.camera.wait_recording(timeout=1, splitter_port=1)
+                self.camera.wait_recording(timeout=0, splitter_port=1)
                 while not self.shutdown:
+                    if self.timestamp:
+                        self.camera.annotate_text = datetime.datetime.now().strftime(self.timestamp_format)
                     time.sleep(1)
             except Exception as ex:
                 syslog.syslog("ERROR: " + str(ex))
             finally:
                 self.camera.stop_recording(splitter_port=1)
-                self.camera.stop_preview()
                 syslog.syslog('Stopped streaming')
-                # Close the socket
-                self.connection.close()
-                self.client_socket.close()
                 # Stop the gstreamer pipeline
                 self.streamer.set_state(Gst.State.READY)
 
@@ -218,7 +204,7 @@ class VideoStreamer:
         self.camera.start_recording(
             filename, format='h264', splitter_port=2
         )
-        self.camera.wait_recording(timeout=1, splitter_port=2)
+        self.camera.wait_recording(timeout=0, splitter_port=2)
 
     def stop_recording(self):
         syslog.syslog("Stopped recording video")
@@ -226,11 +212,23 @@ class VideoStreamer:
         self.recording = False
 
 
+class StreamSender(object):
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+        self.appsrc = self.pipeline.get_by_name("appsrc")
+
+    def write(self, data):
+        buffer = Gst.Buffer.new_wrapped(data)
+        ret = self.appsrc.emit("push-buffer", buffer)
+
+    def flush(self):
+        pass
+
+
 class MotionDetector(picamera.array.PiMotionAnalysis):
     def __init__(self, camera, controller):
         super(MotionDetector, self).__init__(camera)
         self.controller = controller
-        self.first = True
 
     def analyse(self, a):
         a = numpy.sqrt(
@@ -239,15 +237,11 @@ class MotionDetector(picamera.array.PiMotionAnalysis):
         ).clip(0, 255).astype(numpy.uint8)
         # If there are 50 vectors detected with a magnitude of 60.
         # We consider movement to be detected.
-        if (a > 60).sum() > 50:
-            # Ignore the first detection, the camera sometimes
-            # triggers a false positive due to camera warmup.
-            if self.first:
-                self.first = False
-                syslog.syslog("Ignoring first detection")
-                return
+        if (a > 60).sum() > 10:
             syslog.syslog("Got event: MotionDetected")
-            self.controller.start_recording()
+            record_thread = threading.Thread(target=self.controller.start_recording)
+            record_thread.daemon = True
+            record_thread.start()
 
 
 class FruitnannyController:
@@ -273,18 +267,11 @@ class FruitnannyController:
         self.audioStreamer = AudioStreamer(self)
         self.videoStreamer.start()
         self.audioStreamer.start()
-        self.initializing = True
-        self.init_start = datetime.datetime.utcnow()
 
     def set_mainloop(self, mainloop):
         self.mainloop = mainloop
 
     def on_signal(self, *args, **kwargs):
-        if self.initializing:
-            if self.init_start + datetime.timedelta(seconds=30) < datetime.datetime.utcnow():
-                self.initializing = False
-            else:
-                return
         syslog.syslog("Got event: {}".format(kwargs['event']))
         if kwargs['event'] == "MotionDetected":
             self.start_recording()
