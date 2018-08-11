@@ -56,7 +56,9 @@ server {
 
     location /events {
         alias /var/lib/fruitnanny;
-        autoindex on;
+        fancyindex on;
+        fancyindex_localtime on;
+        fancyindex_exact_size off;
     }
 
 }

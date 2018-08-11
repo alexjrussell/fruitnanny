@@ -145,7 +145,7 @@ systemctl enable fruitnanny
 systemctl enable janus
 
 # Install nginx
-apt-get -y install nginx
+apt-get -y install nginx libnginx-mod-http-fancyindex
 
 # Remove default site
 rm -f /etc/nginx/sites-enabled/default
