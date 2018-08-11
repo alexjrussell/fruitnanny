@@ -132,8 +132,13 @@ python setup.py install
 ln -s /opt/fruitnanny/configuration/systemd/fruitnanny.service /etc/systemd/system/
 ln -s /opt/fruitnanny/configuration/systemd/janus.service /etc/systemd/system/
 
-# Install dbus config, to allow motion to communicate with the recording daemon
+# Install dbus config, to allow communication with the fruitnanny daemon
 ln -s /opt/fruitnanny/configuration/dbus/org.freedesktop.fruitnanny.conf /etc/dbus-1/system.d/
+
+# Create the folder for the recordings
+mkdir /var/lib/fruitnanny
+chown pi:pi /var/lib/fruitnanny
+chmod a+rx /var/lib/fruitnanny
 
 # Enable services
 systemctl enable fruitnanny

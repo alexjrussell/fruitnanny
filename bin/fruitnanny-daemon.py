@@ -37,7 +37,7 @@ EVENT_END_INACTIVITY = 20
 # The maximum recording length in minutes
 MAXIMUM_RECORDING_LENGTH = 20
 
-TARGET_DIR = "/var/lib/motion"
+TARGET_DIR = "/var/lib/fruitnanny"
 
 VIDEO_WIDTH = 960
 VIDEO_HEIGHT = 544

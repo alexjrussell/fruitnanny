@@ -55,7 +55,7 @@ server {
     }
 
     location /events {
-        alias /var/lib/motion;
+        alias /var/lib/fruitnanny;
         autoindex on;
     }
 
