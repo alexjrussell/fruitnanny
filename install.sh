@@ -1,7 +1,6 @@
 #!/bin/bash
 
 FN_REPO_URL=https://github.com/alexjrussell/fruitnanny
-NGINX_VERSION=1.10.3
 
 # Check we are root
 if [ "$(whoami)" != "root" ]; then
@@ -50,7 +49,7 @@ yes | rpi-update
 
 # Install packages
 apt-get -y install vim git nano emacs libraspberrypi-dev autoconf automake libtool pkg-config avahi-daemon\
-    alsa-base alsa-tools alsa-utils build-essential python-dev python-pip python-alsaaudio
+    alsa-base alsa-tools alsa-utils build-essential python-dev python-pip python-alsaaudio python-picamera
 
 pip install xvfbwrapper
 
@@ -99,29 +98,6 @@ apt-get -y install gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plu
     gstreamer1.0-plugins-ugly gstreamer1.0-plugins-bad libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev gstreamer1.0-alsa
 
-# Install gstreamer camera module
-git clone https://github.com/thaytan/gst-rpicamsrc /tmp/gst-rpicamsrc
-cd /tmp/gst-rpicamsrc
-./autogen.sh --prefix=/usr --libdir=/usr/lib/arm-linux-gnueabihf/
-make
-make install
-
-# Install motion
-# TODO: install dependencies of the motion package
-apt-get -y install motion
-wget -O /tmp/motion.deb https://github.com/Motion-Project/motion/releases/download/release-4.1.1/pi_stretch_motion_4.1.1-1_armhf.deb
-dpkg --install /tmp/motion.deb
-# Install motion config and service
-chown pi:pi /var/lib/motion
-chmod a+rx /var/lib/motion
-mv /etc/motion/motion.conf /etc/motion/motion.conf_old
-ln -s /opt/fruitnanny/configuration/motion/motion.conf /etc/motion/motion.conf
-update-rc.d motion disable
-ln -s /opt/fruitnanny/configuration/systemd/motion.service /etc/systemd/system/
-systemctl enable motion
-
-#modprobe bcm2835-v4l2
-
 # Install Janus WebRTC Gateway
 apt-get -y install libmicrohttpd-dev libjansson-dev libnice-dev \
     libssl-dev libsrtp-dev libsofia-sip-ua-dev libglib2.0-dev \
@@ -129,9 +105,9 @@ apt-get -y install libmicrohttpd-dev libjansson-dev libnice-dev \
 
 git clone https://github.com/meetecho/janus-gateway /tmp/janus-gateway
 cd /tmp/janus-gateway
-git checkout v0.2.5
+git checkout v0.4.2
 sh autogen.sh
-./configure --disable-websockets --disable-data-channels --disable-rabbitmq --disable-mqtt
+./configure --disable-websockets --disable-data-channels --disable-rabbitmq --disable-mqtt --disable-plugin-lua
 make
 make install
 
@@ -163,30 +139,24 @@ ln -s /opt/fruitnanny/configuration/dbus/org.freedesktop.fruitnanny.conf /etc/db
 systemctl enable fruitnanny
 systemctl enable janus
 
-# Install nginx & rtmp module from source
-apt-get -y install build-essential libpcre3 libpcre3-dev libssl-dev unzip
-wget -O /tmp/nginx.tgz http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz
-cd /opt
-tar -xzf /tmp/nginx.tgz
-wget -O /tmp/nginx-rtmp.zip https://github.com/arut/nginx-rtmp-module/archive/master.zip
-unzip /tmp/nginx-rtmp.zip
-cd /opt/nginx-$NGINX_VERSION
-./configure --with-http_ssl_module --add-module=../nginx-rtmp-module-master
-make
-make install
+# Install nginx
+apt-get -y install nginx
 
-# Configure the nginx service
-update-rc.d nginx disable
-ln -s /opt/fruitnanny/configuration/systemd/nginx.service /etc/systemd/system/
+# Remove default site
+rm -f /etc/nginx/sites-enabled/default
 
 # Install the nginx config
-mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_old
-ln -s /opt/fruitnanny/configuration/nginx/nginx.conf /usr/local/nginx/conf/nginx.conf
+ln -s /opt/fruitnanny/configuration/nginx/fruitnanny_http /etc/nginx/sites-available/fruitnanny_http
+ln -s /opt/fruitnanny/configuration/nginx/fruitnanny_https /etc/nginx/sites-available/fruitnanny_https
+
+# Enable the sites
+ln -s /etc/nginx/sites-available/fruitnanny_http /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/fruitnanny_https /etc/nginx/sites-enabled/
 
 # Configure the password
-sh -c "echo -n 'fruitnanny:' >> /usr/local/nginx/conf/.htpasswd"
+sh -c "echo -n 'fruitnanny:' >> /etc/nginx/conf/.htpasswd"
 echo "Enter password for fruitnanny web application"
-sh -c "openssl passwd -apr1 >> /usr/local/nginx/conf/.htpasswd"
+sh -c "openssl passwd -apr1 >> /etc/nginx/conf/.htpasswd"
 
 systemctl enable nginx
 
