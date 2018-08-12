@@ -139,7 +139,7 @@ class VideoStreamer:
         self.timestamp_format = VIDEO_TIMESTAMP_FORMAT
         self.timestamp_size = VIDEO_TIMESTAMP_SIZE
         # Create the pipeline that puts h264 into rtp
-        self.streamer = Gst.parse_launch("appsrc name=appsrc is-live=true ! video/x-h264 ! h264parse ! queue max-size-bytes=0 max-size-buffers=0 ! rtph264pay config-interval=1 pt=96 ! udpsink port=5004")
+        self.streamer = Gst.parse_launch("appsrc name=appsrc do-timestamp=true is-live=true ! video/x-h264 ! queue max-size-bytes=0 max-size-buffers=0 ! h264parse ! rtph264pay config-interval=1 pt=96 ! queue ! udpsink port=5004 sync=false")
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
