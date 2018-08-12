@@ -310,16 +310,16 @@ class FruitnannyController:
         video_file = "{}/.{}.h264".format(self.target_dir, self.rec_id)
         if not os.path.isfile(audio_file):
             syslog.syslog("WARNING - Audio file missing: " + audio_file)
-            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {} -c copy {}/{}.mkv".format(video_file, self.target_dir, self.rec_id), shell=True)
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}/{}.mkv".format(str(self.videoStreamer.framerate), video_file, self.target_dir, self.rec_id), shell=True)
             os.remove(video_file)
         elif os.path.getsize(audio_file) == 0:
             syslog.syslog("WARNING - Audio file has 0 bytes: " + audio_file)
-            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {} -c copy {}/{}.mkv".format(video_file, self.target_dir, self.rec_id), shell=True)
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}/{}.mkv".format(str(self.videoStreamer.framerate), video_file, self.target_dir, self.rec_id), shell=True)
             os.remove(video_file)
         else:
             try:
                 # Combine the video and audio
-                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -i {} -itsoffset {} -i {} -c copy -shortest {}/.{}_joined.mkv".format(video_file, VIDEO_SYNC_OFFSET, audio_file, self.target_dir, self.rec_id), shell=True)
+                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -itsoffset {} -i {} -c copy -shortest {}/.{}_joined.mkv".format(str(self.videoStreamer.framerate), video_file, VIDEO_SYNC_OFFSET, audio_file, self.target_dir, self.rec_id), shell=True)
                 # Delete the unwanted files
                 os.remove(video_file)
                 os.remove(audio_file)
