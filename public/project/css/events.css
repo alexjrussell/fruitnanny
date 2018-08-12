@@ -1,3 +1,40 @@
+html, body {
+    background-color: #ecf0f5;
+}
+
+body {
+    margin: 15px;
+}
+
+body::before {
+    content: "Fruitnanny Events";
+    font-size: 24px;
+    font-weight: bold;
+}
+
+h1 {
+    display: none;
+}
+
+table {
+    margin-top: 15px;
+}
+
+th {
+    background-color: #3c8dbc;
+}
+
+th, td {
+    padding: 0.2em 0.5em;
+}
+
+th>a {
+    color: #ffffff;
+}
+
+td>a {
+    color: #222d32;
+}
 
 /* Hide the first row of the event list because it is the parent directory */
 tbody tr:first-child {
