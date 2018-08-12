@@ -1,0 +1,5 @@
+
+/* Hide the first row of the event list because it is the parent directory */
+tbody tr:first-child {
+    display: none;
+}

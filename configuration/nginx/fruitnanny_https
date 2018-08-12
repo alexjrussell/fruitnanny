@@ -62,6 +62,7 @@ server {
         fancyindex on;
         fancyindex_localtime on;
         fancyindex_exact_size off;
+        fancyindex_css_href /public/project/css/events.css;
     }
 
 }
