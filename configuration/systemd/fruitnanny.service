@@ -15,7 +15,7 @@ User=pi
 Group=pi
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=noise
+SyslogIdentifier=fruitnanny
 SuccessExitStatus=SIGKILL
 
 [Install]
