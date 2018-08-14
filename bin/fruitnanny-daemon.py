@@ -25,7 +25,6 @@ import picamera.array
 # - Add recording start notifications
 # - Read configuration from a file
 # - Make it shutdown gracefully
-# - Combine the video & audio in a thread that is CPU limited
 # - Restart the streamers if they fail
 #   - If they repeatedly fail - 5 times in a minute, kill the whole thing
 
@@ -48,6 +47,8 @@ VIDEO_TIMESTAMP = True
 VIDEO_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 VIDEO_TIMESTAMP_SIZE = 18
 
+NOTIFY = True
+
 DEBUG = False
 
 
@@ -63,6 +64,7 @@ class AudioStreamer:
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
+        self.last_level_time = 0
 
     def on_message(self, bus, message):
         if message.type == Gst.MessageType.ERROR:
@@ -73,8 +75,10 @@ class AudioStreamer:
             struct = message.get_structure()
             if struct.get_name() == 'level':
                 level = struct.get_value('rms')[0]
-                if DEBUG:
+                level_time = int(time.time())
+                if DEBUG and level_time > self.last_level_time:
                     syslog.syslog("LEVEL = " + str(level))
+                    self.last_level_time = level_time
                 if level > DETECT_LEVEL:
                     syslog.syslog("Got event: NoiseDetected")
                     self.controller.start_recording()
@@ -260,8 +264,7 @@ class FruitnannyController:
         self.rec_started = None
         self.rec_stopped = None
         self.target_dir = TARGET_DIR
-        # Start the thread that checks for the end of recordings
-        thread.start_new_thread(self.check_for_end, ())
+        self.lock = threading.Lock()
         # Start the audio & video streams
         self.videoStreamer = VideoStreamer(self)
         self.audioStreamer = AudioStreamer(self)
@@ -277,27 +280,35 @@ class FruitnannyController:
             self.start_recording()
 
     def start_recording(self):
+        self.lock.acquire()
         if self.recording:
             self.last_trigger = datetime.datetime.utcnow()
         else:
             self.recording = True
+            if NOTIFY:
+                os.system("curl -s http://127.0.0.1:7000/sendmessage?message=Fruitnanny%20-%20Sound%20or%20movement%20detected")
             self.rec_id = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
             self.rec_started = datetime.datetime.utcnow()
             self.timestamp_offset = time.time()
             self.last_trigger = self.rec_started
             self.videoStreamer.start_recording(self.rec_id)
             self.audioStreamer.start_recording(self.rec_id)
+            # Start the thread that checks for the end of recordings
+            thread.start_new_thread(self.check_for_end, ())
+        self.lock.release()
 
     def check_for_end(self):
         while True:
-            if self.recording:
-                if self.last_trigger + datetime.timedelta(seconds=EVENT_END_INACTIVITY) < datetime.datetime.utcnow():
-                    # The inactivity period has finished
-                    self.stop_recording()
-                elif self.rec_started + datetime.timedelta(minutes=MAXIMUM_RECORDING_LENGTH) < datetime.datetime.utcnow():
-                    # The maximum recording length has been reached
-                    self.stop_recording()
+            if not self.recording:
+                return
+            if self.last_trigger + datetime.timedelta(seconds=EVENT_END_INACTIVITY) < datetime.datetime.utcnow():
+                # The inactivity period has finished
+                break
+            elif self.rec_started + datetime.timedelta(minutes=MAXIMUM_RECORDING_LENGTH) < datetime.datetime.utcnow():
+                # The maximum recording length has been reached
+                break
             time.sleep(1)
+        self.stop_recording()
 
     def stop_recording(self):
         self.videoStreamer.stop_recording()
