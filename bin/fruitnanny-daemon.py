@@ -48,6 +48,7 @@ VIDEO_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 VIDEO_TIMESTAMP_SIZE = 18
 
 NOTIFY = True
+NOTIFY_URL = "http://localhost:7000/sendmessage"
 
 DEBUG = False
 
@@ -57,6 +58,7 @@ class AudioStreamer:
         self.controller = controller
         self.playing = False
         self.recording = False
+        self.recorder = None
         self.shutdown = False
         self.target_dir = TARGET_DIR
         self.streamer = Gst.parse_launch("alsasrc device=hw:1 ! level ! audioconvert ! audioresample ! opusenc ! tee name=tee ! queue leaky=1 ! rtpopuspay ! queue max-size-bytes=0 max-size-buffers=0 ! udpsink host={} port={}".format("127.0.0.1", "5002"))
@@ -77,7 +79,7 @@ class AudioStreamer:
                 level = struct.get_value('rms')[0]
                 level_time = int(time.time())
                 if DEBUG and level_time > self.last_level_time:
-                    syslog.syslog("LEVEL = " + str(level))
+                    syslog.syslog("Audio level = " + str(level))
                     self.last_level_time = level_time
                 if level > DETECT_LEVEL:
                     syslog.syslog("Got event: NoiseDetected")
@@ -108,24 +110,38 @@ class AudioStreamer:
 
     def tee_pad_added(self, tee, pad):
         if not pad.get_name() == "src_0":
-            filename = "{}/.{}.ogg".format(self.target_dir, self.rec_id)
-            self.recorder = Gst.parse_bin_from_description("queue leaky=1 name=record_queue ! audio/x-opus ! oggmux ! filesink location={}".format(filename), True)
-            self.streamer.add(self.recorder)
-            pad_link_return = pad.link(self.recorder.get_static_pad("sink"))
-            if pad_link_return != Gst.PadLinkReturn.OK:
-                syslog.syslog("Invalid return from pad link: " + str(pad_link_return))
-            self.recorder.set_state(Gst.State.PLAYING)
+            try:
+                filename = "{}/.{}.ogg".format(self.target_dir, self.rec_id)
+                if self.recorder == None:
+                    self.recorder = Gst.parse_bin_from_description("queue leaky=1 name=record_queue ! audio/x-opus ! oggmux ! filesink name=filesink location={}/{}".format(self.target_dir, ".dummy.ogg"), True)
+                self.recorder.get_by_name("filesink").set_property("location", filename)
+                if not self.recorder:
+                    syslog.syslog("Unable to create recorder")
+                self.streamer.set_state(Gst.State.PAUSED)
+                self.streamer.add(self.recorder)
+                pad_link_return = pad.link(self.recorder.get_static_pad("sink"))
+                if pad_link_return != Gst.PadLinkReturn.OK:
+                    syslog.syslog("Invalid return from pad link: " + str(pad_link_return))
+                self.streamer.set_state(Gst.State.PLAYING)
+                self.recorder.set_state(Gst.State.PLAYING)
+            except Exception,e:
+                syslog.syslog("Unable to add recorder - " + str(e))
 
     def stop_recording(self):
-        # Stop the recorder
-        self.recorder.set_state(Gst.State.NULL)
-        self.tee_src.unlink(self.recorder.get_static_pad("sink"))
-        # Release the pad
-        self.streamer.get_by_name("tee").release_request_pad(self.tee_src)
-        self.streamer.remove(self.recorder)
-        self.recorder = None
-        self.recording = False
-        syslog.syslog("Stopped recording audio")
+        try:
+            # Stop the recorder
+            self.streamer.set_state(Gst.State.PAUSED)
+            self.recorder.set_state(Gst.State.NULL)
+            self.tee_src.unlink(self.recorder.get_static_pad("sink"))
+            # Release the pad
+            self.streamer.get_by_name("tee").release_request_pad(self.tee_src)
+            self.streamer.remove(self.recorder)
+            self.streamer.set_state(Gst.State.PLAYING)
+            #self.recorder = None
+            self.recording = False
+            syslog.syslog("Stopped recording audio")
+        except Exception,e:
+            syslog.syslog("Unable to remove recorder - " + str(e))
 
 
 class VideoStreamer:
@@ -239,7 +255,7 @@ class MotionDetector(picamera.array.PiMotionAnalysis):
             numpy.square(a['x'].astype(numpy.float)) +
             numpy.square(a['y'].astype(numpy.float))
         ).clip(0, 255).astype(numpy.uint8)
-        # If there are 50 vectors detected with a magnitude of 60.
+        # If there are 10 vectors detected with a magnitude of 60.
         # We consider movement to be detected.
         if (a > 60).sum() > 10:
             syslog.syslog("Got event: MotionDetected")
@@ -276,7 +292,7 @@ class FruitnannyController:
 
     def on_signal(self, *args, **kwargs):
         syslog.syslog("Got event: {}".format(kwargs['event']))
-        if kwargs['event'] == "MotionDetected":
+        if kwargs['event'] == "Trigger":
             self.start_recording()
 
     def start_recording(self):
@@ -286,7 +302,7 @@ class FruitnannyController:
         else:
             self.recording = True
             if NOTIFY:
-                os.system("curl -s http://127.0.0.1:7000/sendmessage?message=Fruitnanny%20-%20Sound%20or%20movement%20detected")
+                os.system("curl -s " + NOTIFY_URL + "?message=Fruitnanny%3A%20Sound%20or%20movement%20detected > /dev/null")
             self.rec_id = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
             self.rec_started = datetime.datetime.utcnow()
             self.timestamp_offset = time.time()
@@ -311,6 +327,7 @@ class FruitnannyController:
         self.stop_recording()
 
     def stop_recording(self):
+        self.lock.acquire()
         self.videoStreamer.stop_recording()
         self.audioStreamer.stop_recording()
         self.rec_stopped = datetime.datetime.utcnow()
@@ -319,26 +336,27 @@ class FruitnannyController:
         # Combine the streams
         audio_file = "{}/.{}.ogg".format(self.target_dir, self.rec_id)
         video_file = "{}/.{}.h264".format(self.target_dir, self.rec_id)
+        recording_file = "{}/{}.mkv".format(self.target_dir, self.rec_id)
+        self.recording = False
+        self.lock.release()
         if not os.path.isfile(audio_file):
             syslog.syslog("WARNING - Audio file missing: " + audio_file)
-            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}/{}.mkv".format(str(self.videoStreamer.framerate), video_file, self.target_dir, self.rec_id), shell=True)
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}".format(str(self.videoStreamer.framerate), video_file, recording_file), shell=True)
             os.remove(video_file)
         elif os.path.getsize(audio_file) == 0:
             syslog.syslog("WARNING - Audio file has 0 bytes: " + audio_file)
-            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}/{}.mkv".format(str(self.videoStreamer.framerate), video_file, self.target_dir, self.rec_id), shell=True)
+            subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -c copy {}".format(str(self.videoStreamer.framerate), video_file, recording_file), shell=True)
             os.remove(video_file)
         else:
             try:
                 # Combine the video and audio
-                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -itsoffset {} -i {} -c copy -shortest {}/.{}_joined.mkv".format(str(self.videoStreamer.framerate), video_file, VIDEO_SYNC_OFFSET, audio_file, self.target_dir, self.rec_id), shell=True)
+                subprocess.check_call("ffmpeg -hide_banner -loglevel quiet -r {} -i {} -itsoffset {} -i {} -c copy -shortest {}".format(str(self.videoStreamer.framerate), video_file, VIDEO_SYNC_OFFSET, audio_file, recording_file), shell=True)
                 # Delete the unwanted files
                 os.remove(video_file)
                 os.remove(audio_file)
-                os.rename('{}/.{}_joined.mkv'.format(self.target_dir, self.rec_id), '{}/{}.mkv'.format(self.target_dir, self.rec_id))
-                syslog.syslog("New recording file {}/{}.mkv".format(self.target_dir, self.rec_id))
+                syslog.syslog("New recording file {}".format(recording_file))
             except Exception,e:
                 syslog.syslog("Failed to combine audio and video files - " + str(e))
-        self.recording = False
 
     def exit(self, exitcode):
         self.exitcode = exitcode
@@ -355,7 +373,11 @@ vdisplay = Xvfb()
 vdisplay.start()
 syslog.syslog("Started Xvfb on display " + os.environ['DISPLAY'])
 
+if DEBUG:
+    os.environ["GST_DEBUG"] = "*:4"
+
 Gst.init(None)
+
 # Make sure the pulse audio daemon is running
 os.system("/usr/bin/pulseaudio --start --log-target=syslog")
 # TODO: See if there is something that it can wait for
