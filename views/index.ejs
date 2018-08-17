@@ -47,6 +47,13 @@
         }
     }
 
+    function shutdown() {
+        var sendShutdown = confirm("This will shutdown the Fruitnanny system.  Are you sure?");
+        if (sendShutdown) {
+            fnWebSocket.send('shutdown');
+        }
+    }
+
 </script>
 </head>
 

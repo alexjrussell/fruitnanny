@@ -6,13 +6,19 @@ import dht from "./routes/dht";
 import express = require("express");
 import enableWs = require("express-ws");
 import light from "./routes/light";
+import * as cp from "child_process";
 
 let app = express();
 var enabled = enableWs(app);
 var wss = enabled.getWss('/messages');
 app.ws('/messages', (ws, req) => {
     ws.on('message', msg => {
-        console.log("Ignoring message from client: " + msg);
+        if (msg == "shutdown") {
+            console.log("Received shutdown request");
+            cp.exec("sudo halt");
+        } else {
+            console.log("Ignoring message from client: " + msg);
+        }
     })
     ws.on('close', () => {
         console.log('WebSocket was closed')
