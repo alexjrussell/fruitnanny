@@ -4,18 +4,57 @@
 <head>
   <% include ./partials/head %>
   <script type="text/javascript">
+
+    var fnWebSocket = null;
+    var keepAliveTimerId = 0;
+
     $(document).ready(function() {
         DHT.init();
         VideoPlayer.init();
         $("#light").toggle(config.light_switch);
+        var audioAlert = document.getElementById("audioalert");
+        // Set-up the web socket connection
+        var wsHost = window.location.host;
+        var wsProtocol = "ws";
+        if (window.location.protocol == "https:") {
+            wsProtocol = "wss";
+        }
+        var wsUrl = wsProtocol + ":" + wsHost + "/messages";
+        fnWebSocket = new WebSocket(wsUrl);
+        fnWebSocket.onmessage = function(event) {
+            console.log("Got message: " + event.data);
+            audioAlert.play();
+        };
+        fnWebSocket.onopen = function() {
+           keepAlive();
+        };
+        fnWebSocket.onclose = function() {
+           cancelKeepAlive();
+        };
     });
+
+    function keepAlive() {
+        var timeout = 20000;
+        if (fnWebSocket.readyState == fnWebSocket.OPEN) {
+            fnWebSocket.send('');
+        }
+        keepAliveTimerId = setTimeout(keepAlive, timeout);
+    }
     
+    function cancelKeepAlive() {
+        if (keepAliveTimerId) {
+            clearTimeout(keepAliveTimerId);
+        }
+    }
+
 </script>
 </head>
 
 <body class="hold-transition skin-blue sidebar-mini sidebar-collapse">
   <div class="wrapper">
-
+    <audio id="audioalert">
+        <source src="public/project/sounds/alert.wav" type="audio/wav"/>
+    </audio>
     <!-- Main Header -->
     <header class="main-header">
       <% include ./partials/header %>
@@ -38,7 +77,7 @@
       <!-- Main content -->
       <section class="content">
         <div class="row">
-          <div class="col-md-6">
+          <div class="col-md-8">
             
             <figure id="videoContainer" data-fullscreen="false">
               <video id="video" autoplay muted> 
@@ -75,7 +114,7 @@
           </div>
           <div>
           
-          <div class="col-md-6">
+          <div class="col-md-4">
             <div class="row">
               <div class="col-md-12">
                 <canvas id="audiolevel"></canvas>
