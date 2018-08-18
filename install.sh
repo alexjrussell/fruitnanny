@@ -49,7 +49,7 @@ yes | rpi-update
 
 # Install packages
 apt-get -y install vim git nano emacs libraspberrypi-dev autoconf automake libtool pkg-config avahi-daemon\
-    alsa-base alsa-tools alsa-utils build-essential python-dev python-pip python-alsaaudio python-picamera
+    alsa-base alsa-tools alsa-utils build-essential python-dev python-pip python-alsaaudio python-picamera python-requests
 
 pip install xvfbwrapper
 
