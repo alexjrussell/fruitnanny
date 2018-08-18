@@ -20,6 +20,7 @@ import threading
 import numpy
 import picamera
 import picamera.array
+import requests
 
 # TODO:
 # - Add recording start notifications
@@ -302,7 +303,10 @@ class FruitnannyController:
         else:
             self.recording = True
             if NOTIFY:
-                os.system("curl -s " + NOTIFY_URL + "?message=Fruitnanny%3A%20Sound%20or%20movement%20detected > /dev/null")
+                syslog.syslog("Sending notification to " + NOTIFY_URL)
+                response = requests.get(NOTIFY_URL, params={'message': 'Fruitnanny: Sound or movement detected'})
+                if response.status_code != requests.codes.ok:
+                    syslog.syslog("Error: Unable to notify web application - " + str(response.status_code))
             self.rec_id = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
             self.rec_started = datetime.datetime.utcnow()
             self.timestamp_offset = time.time()
