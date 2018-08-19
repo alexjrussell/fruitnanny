@@ -53,7 +53,7 @@ var VideoPlayer = (function () {
     var setupButtons = function() {
         playpause.addEventListener('click', function(e) {
             var state = streamContext.pause_stream();
-            if (state === false) {
+            if (state === true) {
                 playpause.querySelector("i").className = "fa fa-pause";
             } else {
                 playpause.querySelector("i").className = "fa fa-play";
