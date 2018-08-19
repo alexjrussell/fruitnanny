@@ -1,3 +1,12 @@
+.slider-track {
+    background: black !important;
+    opacity: 0.3;
+}
+
+.slider-selection {
+    background: red !important;
+    opacity: 0.5;
+}
 
 figure {
     border-style: solid;
@@ -40,17 +49,19 @@ video {
 }
 
 .controls button {
-	text-align:center;
-	overflow:hidden;
-	white-space:nowrap;
-  	text-overflow:ellipsis;
-  	border:none;
-  	cursor:pointer;
+    text-align:center;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    border:none;
+    cursor:pointer;
     width: 15%;
-  	font-size: medium;
-  	background:transparent;
-  	background-size:contain;
-  	background-repeat:no-repeat;
+    font-size: medium;
+    background:transparent;
+    background-size:contain;
+    background-repeat:no-repeat;
+    color: black;
+    text-shadow: 0 0 4px #ffffff;
 }
 
 .controls .empty {
@@ -71,7 +82,10 @@ video {
 
 .controls .sliderdiv {
     width: 16.5%;
-  	background:transparent;
+    background:transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 .controls .sliderdiv > * {
 	width: 100%;
@@ -79,10 +93,11 @@ video {
 }
 
 .slider-handle.custom::before {
-line-height: 15px;
-font-size: 15px;
-content: '\26AB';
-color: black;
+    line-height: 15px;
+    font-size: 15px;
+    content: '\26AB';
+    color: black;
+    text-shadow: 0 0 4px #ffffff;
 }
 
 .slider-handle.custom {
