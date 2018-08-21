@@ -33,9 +33,9 @@ app.get("/", (req, res, next) => {
 app.get("/settings", (req, res, next) => {
     res.render("settings", { config });
 });
-app.get("/sendmessage", (req, res, next) => {
+app.get("/notify", (req, res, next) => {
     wss.clients.forEach(function each(client) {
-        client.send(req.query.message);
+        client.send(req.query.type);
     });
     res.sendStatus(200);
 });
