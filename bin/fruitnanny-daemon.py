@@ -49,7 +49,7 @@ VIDEO_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 VIDEO_TIMESTAMP_SIZE = 18
 
 NOTIFY = True
-NOTIFY_URL = "http://localhost:7000/sendmessage"
+NOTIFY_URL = "http://localhost:7000/notify"
 
 DEBUG = False
 
@@ -304,7 +304,7 @@ class FruitnannyController:
             self.recording = True
             if NOTIFY:
                 syslog.syslog("Sending notification to " + NOTIFY_URL)
-                response = requests.get(NOTIFY_URL, params={'message': 'Fruitnanny: Sound or movement detected'})
+                response = requests.get(NOTIFY_URL, params={'type': 'recording_started'})
                 if response.status_code != requests.codes.ok:
                     syslog.syslog("Error: Unable to notify web application - " + str(response.status_code))
             self.rec_id = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -341,6 +341,11 @@ class FruitnannyController:
         audio_file = "{}/.{}.ogg".format(self.target_dir, self.rec_id)
         video_file = "{}/.{}.h264".format(self.target_dir, self.rec_id)
         recording_file = "{}/{}.mkv".format(self.target_dir, self.rec_id)
+        if NOTIFY:
+            syslog.syslog("Sending notification to " + NOTIFY_URL)
+            response = requests.get(NOTIFY_URL, params={'type': 'recording_ended'})
+            if response.status_code != requests.codes.ok:
+                syslog.syslog("Error: Unable to notify web application - " + str(response.status_code))
         self.recording = False
         self.lock.release()
         if not os.path.isfile(audio_file):

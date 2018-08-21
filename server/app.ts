@@ -37,9 +37,9 @@ app.get("/settings", (req: express.Request, res: express.Response, next: express
     res.render("settings", { config });
   });
 
-app.get("/sendmessage", (req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.get("/notify", (req: express.Request, res: express.Response, next: express.NextFunction) => {
     wss.clients.forEach(function each(client) {
-        client.send(req.query.message);
+        client.send(req.query.type);
     });
     res.sendStatus(200);
 });

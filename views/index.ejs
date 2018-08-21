@@ -23,7 +23,14 @@
         fnWebSocket = new WebSocket(wsUrl);
         fnWebSocket.onmessage = function(event) {
             console.log("Got message: " + event.data);
-            audioAlert.play();
+            if (event.data == "recording_started") {
+                audioAlert.play();
+                // Show the recording icon
+                $("#record-info").show();
+            } else if (event.data == "recording_ended") {
+                // Show the recording icon
+                $("#record-info").hide();
+            }
         };
         fnWebSocket.onopen = function() {
            keepAlive();
@@ -90,6 +97,9 @@
               <video id="video" autoplay muted> 
                 <!--source src="public/small.mp4" type="video/mp4"-->
               </video>
+              <div id="record-info" class="record-info">
+                <p><i class="fa fa-circle blink" aria-hidden="true"></i> REC</p>
+              </div>
               <div id="fullscreen-info" class="fs-info">
                 <div id="fs-temperature" ></div>
                 <div id="fs-humidity" ></div>

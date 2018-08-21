@@ -1,3 +1,37 @@
+.blink {
+  animation: blink-animation 1s steps(5, start) infinite;
+  -webkit-animation: blink-animation 1s steps(5, start) infinite;
+}
+
+@keyframes blink-animation {
+  to {
+    visibility: hidden;
+  }
+}
+
+@-webkit-keyframes blink-animation {
+  to {
+    visibility: hidden;
+  }
+}
+
+.record-info {
+    z-index:2147483647;
+    visibility: hidden;
+    position: absolute;
+    top: 5px;
+    left: 25px;
+    color: red;
+    background: transparent;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+figure[data-fullscreen=true] .record-info {
+    top: 10px;
+    left: 10px;
+}
+
 .slider-track {
     background: black !important;
     opacity: 0.3;
