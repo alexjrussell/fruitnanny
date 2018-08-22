@@ -19,13 +19,11 @@ app.ws('/messages', (ws, req) => {
         if (msg == "shutdown") {
             console.log("Received shutdown request");
             cp.exec("sudo halt");
+        } else if (msg == "isrecording") {
+            ws.send("recording=" + recording);
         } else {
             console.log("Ignoring message from client: " + msg);
         }
-    })
-    ws.on('open', () => {
-        console.log('WebSocket opened');
-        ws.send("recording=" + recording);
     })
     ws.on('close', () => {
         console.log('WebSocket was closed');

@@ -40,10 +40,11 @@
             }
         };
         fnWebSocket.onopen = function() {
-           keepAlive();
+            fnWebSocket.send('isrecording');
+            keepAlive();
         };
         fnWebSocket.onclose = function() {
-           cancelKeepAlive();
+            cancelKeepAlive();
         };
     });
 
