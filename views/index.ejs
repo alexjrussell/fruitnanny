@@ -7,6 +7,7 @@
 
     var fnWebSocket = null;
     var keepAliveTimerId = 0;
+    var recording = false;
 
     $(document).ready(function() {
         DHT.init();
@@ -24,11 +25,17 @@
         fnWebSocket.onmessage = function(event) {
             console.log("Got message: " + event.data);
             if (event.data == "recording_started") {
+                recording = true;
                 audioAlert.play();
                 // Show the recording icon
                 $("#record-info").show();
-            } else if (event.data == "recording_ended") {
+            } else if (event.data == "recording=true") {
+                recording = true;
                 // Show the recording icon
+                $("#record-info").show();
+            } else if (event.data == "recording_ended" || event.data == "recording=false") {
+                recording = false;
+                // Hide the recording icon
                 $("#record-info").hide();
             }
         };

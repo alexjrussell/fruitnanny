@@ -11,6 +11,9 @@ import * as cp from "child_process";
 let app = express();
 var enabled = enableWs(app);
 var wss = enabled.getWss('/messages');
+
+var recording = false;
+
 app.ws('/messages', (ws, req) => {
     ws.on('message', msg => {
         if (msg == "shutdown") {
@@ -20,8 +23,12 @@ app.ws('/messages', (ws, req) => {
             console.log("Ignoring message from client: " + msg);
         }
     })
+    ws.on('open', () => {
+        console.log('WebSocket opened');
+        ws.send("recording=" + recording);
+    })
     ws.on('close', () => {
-        console.log('WebSocket was closed')
+        console.log('WebSocket was closed');
     })
 });
 
@@ -38,6 +45,11 @@ app.get("/settings", (req: express.Request, res: express.Response, next: express
   });
 
 app.get("/notify", (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.query.type == "recording_started") {
+        recording = true;
+    } else if (req.query.type == "recording_ended") {
+        recording = false;
+    }
     wss.clients.forEach(function each(client) {
         client.send(req.query.type);
     });
