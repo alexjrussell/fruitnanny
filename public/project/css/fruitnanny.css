@@ -17,7 +17,7 @@
 
 .record-info {
     z-index:2147483647;
-    visibility: hidden;
+    display: none;
     position: absolute;
     top: 5px;
     left: 25px;
