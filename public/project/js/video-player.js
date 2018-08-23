@@ -10,11 +10,13 @@ var VideoPlayer = (function () {
         playpause = null,
         light = null,
         mute = null,
-        fullscreen = null
+        fullscreen = null,
+        playPauseListener = null
     var light_switch = config.light_switch;
 
 
-    var init = function() {
+    var init = function(plyPseListener) {
+        playPauseListener = plyPseListener
         streamContext = StreamContext;
         if (light_switch) {
             lightController = IRLightController;
@@ -53,6 +55,9 @@ var VideoPlayer = (function () {
     var setupButtons = function() {
         playpause.addEventListener('click', function(e) {
             var state = streamContext.pause_stream();
+            if (playPauseListener != null) {
+                playPauseListener(state);
+            }
             if (state === true) {
                 playpause.querySelector("i").className = "fa fa-pause";
             } else {

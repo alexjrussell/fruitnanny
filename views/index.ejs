@@ -11,7 +11,13 @@
 
     $(document).ready(function() {
         DHT.init();
-        VideoPlayer.init();
+        VideoPlayer.init(function(playing) {
+            if (playing && recording) {
+                $("#record-info").show();
+            } else {
+                $("#record-info").hide();
+            }
+        });
         $("#light").toggle(config.light_switch);
         var audioAlert = document.getElementById("audioalert");
         // Set-up the web socket connection
