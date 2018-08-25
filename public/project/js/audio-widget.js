@@ -102,7 +102,7 @@ var AudioSpectrumWidget = (function(){
             ctx.fillStyle = "red";
             fsAlCtx.fillStyle = "red";
         } else {
-            ctx.fillStyle = "green";
+            ctx.fillStyle = gradient;
             fsAlCtx.fillStyle = "white";
         }
 
