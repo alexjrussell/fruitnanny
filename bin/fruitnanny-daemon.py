@@ -67,7 +67,9 @@ class AudioStreamer:
         self.bus = self.streamer.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
+        self.level_time = 0
         self.last_level_time = 0
+        self.level = 0
 
     def on_message(self, bus, message):
         if message.type == Gst.MessageType.ERROR:
@@ -77,14 +79,20 @@ class AudioStreamer:
         if message.type == Gst.MessageType.ELEMENT:
             struct = message.get_structure()
             if struct.get_name() == 'level':
-                level = struct.get_value('rms')[0]
-                level_time = int(time.time())
-                if DEBUG and level_time > self.last_level_time:
-                    syslog.syslog("Audio level = " + str(level))
-                    self.last_level_time = level_time
-                if level > DETECT_LEVEL:
+                self.level = struct.get_value('rms')[0]
+                self.level_time = int(time.time())
+                if DEBUG and self.level_time > self.last_level_time:
+                    syslog.syslog("Audio level = " + str(self.level))
+                    self.last_level_time = self.level_time
+                if self.level > DETECT_LEVEL:
                     syslog.syslog("Got event: NoiseDetected")
                     self.controller.start_recording()
+
+    def get_level(self):
+        return self.level
+
+    def get_level_time(self):
+        return self.level_time
 
     def start(self):
         self.streamer.set_state(Gst.State.PLAYING)
@@ -92,8 +100,13 @@ class AudioStreamer:
         syslog.syslog("Audio stream started")
 
     def stop(self):
+        if self.is_recording():
+            self.stop_recording()
         self.streamer.set_state(Gst.State.READY)
         syslog.syslog("Audio stream stopped")
+
+    def close(self):
+        self.streamer.set_state(Gst.State.NULL)
 
     def is_playing(self):
         return self.playing
@@ -208,6 +221,8 @@ class VideoStreamer:
                 self.streamer.set_state(Gst.State.READY)
 
     def stop(self):
+        if self.is_recording():
+            self.stop_recording()
         self.shutdown = True
         syslog.syslog("Video stream stopped")
 
@@ -287,6 +302,29 @@ class FruitnannyController:
         self.audioStreamer = AudioStreamer(self)
         self.videoStreamer.start()
         self.audioStreamer.start()
+        thread.start_new_thread(self.monitor_streams, ())
+
+    def monitor_streams(self):
+        # Wait for streams to be playing
+        while not self.videoStreamer.is_playing() or not self.audioStreamer.is_playing() or self.audioStreamer.get_level_time() == 0:
+            time.sleep(1)
+        while True:
+            # Restart the audio stream if no level has been registered for 5 seconds
+            this_time = int(time.time())
+            level_time = self.audioStreamer.get_level_time()
+            if this_time > level_time + 5:
+                # The audio stream seems to be frozen
+                syslog.syslog("Restarting frozen audio stream")
+                # Kill the existing stream
+                self.audioStreamer.stop()
+                self.audioStreamer.close()
+                # Create a new strean
+                self.audioStreamer = AudioStreamer(self)
+                self.audioStreamer.start()
+                # Wait until the new stream is running
+                while not self.audioStreamer.is_playing() or self.audioStreamer.get_level_time() == 0:
+                    time.sleep(1)
+            time.sleep(1)
 
     def set_mainloop(self, mainloop):
         self.mainloop = mainloop
