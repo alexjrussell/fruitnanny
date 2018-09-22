@@ -165,4 +165,7 @@ sh -c "openssl passwd -apr1 >> /etc/nginx/conf/.htpasswd"
 
 systemctl enable nginx
 
+# Configure the cron job to purge old recordings
+ln -s /opt/fruitnanny/bin/purge-recordings.py /etc/cron.hourly/
+
 echo "Installation successful - reboot to start Fruitnanny!"
