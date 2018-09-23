@@ -159,9 +159,9 @@ ln -s /etc/nginx/sites-available/fruitnanny_http /etc/nginx/sites-enabled/
 ln -s /etc/nginx/sites-available/fruitnanny_https /etc/nginx/sites-enabled/
 
 # Configure the password
-sh -c "echo -n 'fruitnanny:' >> /etc/nginx/conf/.htpasswd"
+sh -c "echo -n 'fruitnanny:' >> /etc/nginx/.htpasswd"
 echo "Enter password for fruitnanny web application"
-sh -c "openssl passwd -apr1 >> /etc/nginx/conf/.htpasswd"
+sh -c "openssl passwd -apr1 >> /etc/nginx/.htpasswd"
 
 systemctl enable nginx
 
