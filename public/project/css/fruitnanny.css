@@ -157,11 +157,13 @@ figure[data-fullscreen=true] video::-webkit-media-controls {
     display: none !important;
 }
 figure[data-fullscreen=true] {
+    border-style: none;
     max-width: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     max-height: 100%;
+    display: flex
 }
 figure[data-fullscreen=true] video {
     height: auto;
@@ -170,6 +172,7 @@ figure[data-fullscreen=true] figcaption {
     display: none;
 }
 figure[data-fullscreen=true] .controls {
+    border-top-style: none;
     position: absolute;
     bottom: 2%;
     width: 100%;
