@@ -19,6 +19,10 @@
             }
         });
         $("#light").toggle(config.light_switch);
+        openWebSocket();
+    });
+
+    function openWebSocket() {
         var audioAlert = document.getElementById("audioalert");
         // Set-up the web socket connection
         var wsHost = window.location.host;
@@ -50,14 +54,19 @@
             keepAlive();
         };
         fnWebSocket.onclose = function() {
+            console.log("WebSocket closed by host");
             cancelKeepAlive();
         };
-    });
+    }
 
     function keepAlive() {
         var timeout = 20000;
         if (fnWebSocket.readyState == fnWebSocket.OPEN) {
             fnWebSocket.send('');
+        } else if (fnWebSocket.readyState == fnWebSocket.CLOSED) {
+            // The socket is closed so try to re-open it
+            console.log("WebSocket is closed - reopening");
+            openWebSocket();
         }
         keepAliveTimerId = setTimeout(keepAlive, timeout);
     }
