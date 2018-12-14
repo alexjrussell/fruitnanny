@@ -20,14 +20,13 @@ $(document).ready(function() {
 			bootbox.alert("No WebRTC support... ");
 			return;
 		}
-		
+
 		// Create session
 		janus = new Janus(
 			{
 				server: server,
 				success: function() {
 					// Attach to streaming plugin
-					
 					janus.attach(
 						{
 							plugin: "janus.plugin.streaming",
@@ -87,17 +86,16 @@ $(document).ready(function() {
 							onremotestream: function(stream) {
 								Janus.debug(" ::: Got a remote stream :::");
 								Janus.debug(JSON.stringify(stream));
-								
+
 								$("#video").bind("playing", function () {
 									if(spinner !== null && spinner !== undefined)
 										spinner.stop();
 									spinner = null;
 								});
-								
+
 								Janus.attachMediaStream($('#video').get(0), stream);
 								streamContext.init(stream);
 								audioSpectrumWidget.enable();
-								
 							},
 							oncleanup: function() {
 								Janus.log(" ::: Got a cleanup notification :::");
@@ -108,6 +106,7 @@ $(document).ready(function() {
 					if(spinner !== null && spinner !== undefined)
 					  spinner.stop();
 					Janus.error(error);
+					exitFullscreenMode();
 					bootbox.alert(error, function() {
 						//window.location.reload();
 					});
@@ -130,7 +129,7 @@ function loadStream() {
 			return;
 		}
 		if(result["list"] !== undefined && result["list"] !== null) {
-			var list = result["list"];			
+			var list = result["list"];
 			Janus.log("Got a list of available streams");
 			Janus.debug(list);
 			selectedStream = list[0]["id"]
@@ -147,4 +146,15 @@ function startStream() {
 	}
 	var body = { "request": "watch", id: parseInt(selectedStream) };
 	streaming.send({"message": body});
+}
+
+function exitFullscreenMode() {
+    // Checks if the document is currently in fullscreen mode
+    if (document.fullScreen || document.webkitIsFullScreen || document.mozFullScreen || document.msFullscreenElement || document.fullscreenElement) {
+        // Exit fullscreen mode
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.webkitCancelFullScreen) document.webkitCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+    }
 }
