@@ -146,6 +146,9 @@ button {
 html:-ms-fullscreen {
     width:100%;
 }
+body {
+    font-size: medium
+}
 :-webkit-full-screen {
     background-color: transparent;
 }
