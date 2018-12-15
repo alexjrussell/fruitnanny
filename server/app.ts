@@ -17,16 +17,16 @@ var recording = false;
 app.ws('/messages', (ws, req) => {
     ws.on('message', msg => {
         if (msg == "shutdown") {
-            console.log(new Date().toISOString() + "Received shutdown request");
+            console.log(new Date().toISOString() + " - Received shutdown request");
             cp.exec("sudo halt");
         } else if (msg == "isrecording") {
             ws.send("recording=" + recording);
         } else {
-            console.log(new Date().toISOString() + "Ignoring message from client: " + msg);
+            console.log(new Date().toISOString() + " - Ignoring message from client: " + msg);
         }
     })
     ws.on('close', () => {
-        console.log(new Date().toISOString() + 'WebSocket was closed by client');
+        console.log(new Date().toISOString() + ' - WebSocket was closed by client');
     })
 });
 
@@ -58,5 +58,5 @@ app.use("/api/dht", dht);
 app.use("/api/custom_button", custom_button);
 
 app.listen(7000, 'localhost', () => {
-    console.log("Fruitnanny app listening on port 7000!");
+    console.log(new Date().toISOString() + " - Fruitnanny app listening on port 7000!");
 });
