@@ -107,6 +107,8 @@ $(document).ready(function() {
 					  spinner.stop();
 					Janus.error(error);
 					exitFullscreenMode();
+					var audioAlert = document.getElementById("audioalert");
+					audioAlert.play();
 					bootbox.alert(error, function() {
 						//window.location.reload();
 					});
