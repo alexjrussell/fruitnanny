@@ -17,16 +17,16 @@ var recording = false;
 app.ws('/messages', (ws, req) => {
     ws.on('message', msg => {
         if (msg == "shutdown") {
-            console.log("Received shutdown request");
+            console.log(new Date().toISOString() + "Received shutdown request");
             cp.exec("sudo halt");
         } else if (msg == "isrecording") {
             ws.send("recording=" + recording);
         } else {
-            console.log("Ignoring message from client: " + msg);
+            console.log(new Date().toISOString() + "Ignoring message from client: " + msg);
         }
     })
     ws.on('close', () => {
-        console.log('WebSocket was closed');
+        console.log(new Date().toISOString() + 'WebSocket was closed by client');
     })
 });
 
