@@ -78,10 +78,11 @@
     }
 
     function shutdown() {
-        var sendShutdown = confirm("This will shutdown the Fruitnanny system.  Are you sure?");
-        if (sendShutdown) {
-            fnWebSocket.send('shutdown');
-        }
+        bootbox.confirm("This will shutdown the Fruitnanny system. Are you sure?", function(shutdownConfirmed) {
+            if (shutdownConfirmed) {
+                fnWebSocket.send('shutdown');
+            }
+        });
     }
 
 </script>
