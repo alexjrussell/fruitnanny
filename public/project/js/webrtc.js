@@ -109,8 +109,19 @@ $(document).ready(function() {
 					exitFullscreenMode();
 					var audioAlert = document.getElementById("audioalert");
 					audioAlert.play();
-					bootbox.alert(error, function() {
-						//window.location.reload();
+					bootbox.dialog({
+						message: '<p><i class="fa fa-exclamation-triangle" style="font-size:32px;color:red"></i> &nbsp;&nbsp; ' + error + '</p>',
+						buttons: {
+							refresh: {
+								label: "Refresh",
+								callback: function() {
+									window.location.reload();
+								}
+							},
+							ok: {
+								label: "OK"
+							}
+						}
 					});
 				},
 				destroyed: function() {
