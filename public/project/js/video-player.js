@@ -89,6 +89,7 @@ var VideoPlayer = (function () {
 
         fs.addEventListener('click', function(e) {
             handleFullscreen();
+            fs.blur();
         });
 
         streamContext.onmute(function(){
