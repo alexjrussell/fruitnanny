@@ -130,6 +130,11 @@ var VideoPlayer = (function () {
         videoContainer.setAttribute('data-fullscreen', !!state);
         // Set the fullscreen button's 'data-state' which allows the correct button image to be set via CSS
         fullscreen.setAttribute('data-state', !!state ? 'cancel-fullscreen' : 'go-fullscreen');
+        if (!state) {
+            fs.querySelector("i").className = "fa fa-expand";
+        } else {
+            fs.querySelector("i").className = "fa fa-compress";
+        }
     }
 
     // Checks if the document is currently in fullscreen mode
