@@ -198,9 +198,13 @@ figure[data-fullscreen=true] .fs-info {
     color: white;
     position: absolute;
     width: 4%;
+    height: 10%;
     top: 0;
     right: 0;
     z-index: 2147483647;
+    text-align: right;
+    margin-top: 10px;
+    margin-right: 10px;
 }
 
 figure[data-fullscreen=true] .controls li {
@@ -222,7 +226,8 @@ button[data-state="off"][id="light"] {
 }
 
 #fs-audiolevelmeter {
-    height: 60px;
+    width: 35%;
+    height: 80%;
 }
 
 #temperature {
