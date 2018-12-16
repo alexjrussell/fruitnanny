@@ -136,6 +136,12 @@ button {
     opacity: 0.5;
 }
 
+@media (pointer:coarse) {
+    .controls button:hover {
+        opacity: 1.0;
+    }
+}
+
 .fs-info {
     visibility: hidden;
     width: 0;
